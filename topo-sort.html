@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Topological Sort (DFS) — Interactive Visualizer</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --panel-2: #334155;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --accent-2: #22d3ee;
+    --ok: #4ade80;
+    --warn: #fbbf24;
+    --danger: #f87171;
+    --white-node: #e2e8f0;
+    --gray-node:  #94a3b8;
+    --black-node: #1f2937;
+    --current:    #f87171;
+    --edge: #64748b;
+    --edge-tree: #a78bfa;
+    --edge-inspect: #22d3ee;
+    --edge-back: #ef4444;
+    --edge-cross: #475569;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+  header {
+    padding: 18px 24px;
+    background: linear-gradient(90deg, #0c4a6e, #164e63);
+    border-bottom: 1px solid #0e7490;
+  }
+  header h1 { margin: 0; font-size: 22px; }
+  header p { margin: 4px 0 0; color: #bae6fd; font-size: 14px; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(520px, 2fr) minmax(360px, 1fr);
+    gap: 16px;
+    padding: 16px;
+  }
+  @media (max-width: 1000px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--panel-2);
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .panel h2 {
+    margin: 0 0 10px;
+    font-size: 15px;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  button, select {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid #475569;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background 0.15s;
+  }
+  button:hover:not(:disabled) { background: #475569; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.primary { background: var(--accent); color: #0c1424; border-color: var(--accent); font-weight: 600; }
+  button.primary:hover:not(:disabled) { background: var(--accent-2); }
+  .controls label { font-size: 13px; color: var(--muted); }
+
+  .mode-pills {
+    display: flex; gap: 4px;
+    background: #0f172a;
+    padding: 3px;
+    border-radius: 6px;
+    border: 1px solid #475569;
+  }
+  .mode-pills button {
+    padding: 4px 10px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-size: 12px;
+    border-radius: 4px;
+  }
+  .mode-pills button.active {
+    background: var(--accent);
+    color: #0c1424;
+    font-weight: 600;
+  }
+
+  .canvas-wrap {
+    position: relative;
+    background: #0b1220;
+    border-radius: 8px;
+    border: 1px solid #334155;
+    overflow: hidden;
+  }
+  svg { display: block; width: 100%; height: 500px; cursor: default; }
+  svg.mode-node { cursor: crosshair; }
+  svg.mode-edge { cursor: pointer; }
+  svg.mode-delete { cursor: not-allowed; }
+
+  .node-circle {
+    stroke-width: 2;
+    transition: fill 0.25s, stroke 0.25s;
+  }
+  .node-circle.white  { fill: var(--white-node); stroke: #cbd5e1; }
+  .node-circle.gray   { fill: var(--gray-node);  stroke: #475569; }
+  .node-circle.black  { fill: var(--black-node); stroke: #a78bfa; }
+  .node-circle.current { stroke: var(--current); stroke-width: 3.5; }
+
+  .node-label {
+    font-size: 13px;
+    font-weight: 600;
+    text-anchor: middle;
+    dominant-baseline: central;
+    pointer-events: none;
+  }
+  .node-label.on-white { fill: #0f172a; }
+  .node-label.on-gray  { fill: #0f172a; }
+  .node-label.on-black { fill: #e2e8f0; }
+
+  .time-label {
+    fill: #fbbf24;
+    font-size: 13px;
+    font-weight: 700;
+    text-anchor: middle;
+    pointer-events: none;
+    font-family: "SF Mono", Consolas, monospace;
+    paint-order: stroke;
+    stroke: #0b1220;
+    stroke-width: 3;
+  }
+
+  .edge-line {
+    stroke: var(--edge);
+    stroke-width: 2;
+    transition: stroke 0.2s, stroke-width 0.2s;
+    fill: none;
+  }
+  .edge-line.tree    { stroke: var(--edge-tree);    stroke-width: 3; }
+  .edge-line.inspect { stroke: var(--edge-inspect); stroke-width: 3.5; }
+  .edge-line.back    { stroke: var(--edge-back);    stroke-width: 3.5; }
+  .edge-line.cross   { stroke: var(--edge-cross); stroke-dasharray: 4 3; }
+  .edge-hitbox { stroke: transparent; stroke-width: 14; cursor: pointer; fill: none; }
+
+  .right-col { display: flex; flex-direction: column; gap: 16px; }
+
+  .pseudo {
+    background: #0b1220;
+    border-radius: 6px;
+    padding: 10px 8px;
+    font-family: "SF Mono", Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.65;
+    overflow-x: auto;
+  }
+  .pseudo .line {
+    padding: 1px 8px;
+    border-radius: 3px;
+    display: block;
+    white-space: pre;
+    color: #cbd5e1;
+  }
+  .pseudo .line.active {
+    background: rgba(251, 191, 36, 0.25);
+    border-left: 3px solid var(--warn);
+    padding-left: 5px;
+  }
+  .pseudo .kw { color: #f472b6; }
+  .pseudo .fn { color: #60a5fa; }
+  .pseudo .cm { color: #64748b; font-style: italic; }
+
+  .stack-box {
+    background: #0b1220;
+    border-radius: 6px;
+    padding: 10px;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: center;
+  }
+  .stack-label {
+    color: var(--muted);
+    font-size: 11px;
+    margin-bottom: 2px;
+    align-self: flex-start;
+  }
+  .stack-frame {
+    background: var(--gray-node);
+    color: #0f172a;
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: "SF Mono", Consolas, monospace;
+    font-weight: 600;
+    border: 1px solid #64748b;
+    min-width: 90px;
+    text-align: center;
+  }
+  .stack-frame.top {
+    border-color: var(--current);
+    box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.3);
+  }
+  .stack-empty {
+    color: var(--muted);
+    font-style: italic;
+    font-size: 13px;
+    padding: 20px 0;
+  }
+
+  .order-list {
+    background: #0b1220;
+    border-radius: 6px;
+    padding: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    min-height: 40px;
+  }
+  .order-chip {
+    background: var(--panel-2);
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: "SF Mono", Consolas, monospace;
+    font-weight: 600;
+    border: 1px solid #475569;
+  }
+  .order-chip.first { background: var(--ok); color: #052e16; border-color: #16a34a; }
+  .arrow-sep { color: var(--muted); font-size: 12px; }
+  .order-empty { color: var(--muted); font-style: italic; font-size: 13px; }
+
+  .topo-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+  .topo-label { color: var(--accent); font-size: 11px; text-transform: uppercase; letter-spacing:0.4px; font-weight: 600; }
+
+  .status {
+    padding: 8px 10px;
+    background: #0b1220;
+    border-radius: 6px;
+    font-size: 13px;
+    border-left: 3px solid var(--accent);
+    min-height: 36px;
+  }
+  .status.error { border-left-color: var(--danger); background: #1f0a0a; }
+  .status.done  { border-left-color: var(--ok); }
+
+  .log {
+    max-height: 140px;
+    overflow-y: auto;
+    background: #0b1220;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 12px;
+    font-family: "SF Mono", Consolas, monospace;
+    color: #cbd5e1;
+  }
+  .log div { padding: 2px 0; border-bottom: 1px dotted #1e293b; }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .swatch { width: 12px; height: 12px; border-radius: 50%; border: 2px solid; display: inline-block; }
+  .eswatch { width: 22px; height: 3px; display: inline-block; }
+
+  .help-text {
+    font-size: 12px;
+    color: var(--muted);
+    margin: 6px 0;
+    font-style: italic;
+  }
+
+  .footer-note {
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    padding: 10px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Topological Sort via DFS — Interactive Visualizer</h1>
+  <p>Three-color (white / gray / black) DFS on a directed graph. Watch the call stack grow and shrink, see the finish order build up, and catch cycles by their back edges.</p>
+</header>
+
+<div class="layout">
+
+  <!-- LEFT -->
+  <div>
+    <div class="panel">
+      <h2>Directed Graph</h2>
+
+      <div class="controls">
+        <label>Preset:</label>
+        <select id="presetSelect">
+          <option value="build">Build dependencies</option>
+          <option value="multi">Multiple valid orderings</option>
+          <option value="cycle">Cyclic (error demo)</option>
+          <option value="empty">Empty canvas</option>
+        </select>
+        <button id="loadPresetBtn">Load</button>
+
+        <span style="flex:1"></span>
+
+        <span class="mode-pills">
+          <button data-mode="select" class="active" title="Drag nodes">Select</button>
+          <button data-mode="node" title="Click empty canvas to add a node">+ Node</button>
+          <button data-mode="edge" title="Click source node then target node">+ Edge</button>
+          <button data-mode="delete" title="Click a node or edge to delete">Delete</button>
+        </span>
+      </div>
+
+      <div class="help-text" id="modeHelp">Select mode: drag nodes to rearrange them.</div>
+
+      <div class="canvas-wrap">
+        <svg id="graphSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <marker id="arrowGray" viewBox="0 0 10 10" refX="9" refY="5"
+                    markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b" />
+            </marker>
+            <marker id="arrowTree" viewBox="0 0 10 10" refX="9" refY="5"
+                    markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#a78bfa" />
+            </marker>
+            <marker id="arrowInspect" viewBox="0 0 10 10" refX="9" refY="5"
+                    markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#22d3ee" />
+            </marker>
+            <marker id="arrowBack" viewBox="0 0 10 10" refX="9" refY="5"
+                    markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#ef4444" />
+            </marker>
+            <marker id="arrowCross" viewBox="0 0 10 10" refX="9" refY="5"
+                    markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569" />
+            </marker>
+          </defs>
+          <g id="edgesLayer"></g>
+          <g id="edgesHitLayer"></g>
+          <g id="nodesLayer"></g>
+        </svg>
+      </div>
+
+      <div class="legend" style="margin-top:10px">
+        <span><span class="swatch" style="background:var(--white-node);border-color:#cbd5e1"></span>WHITE (unvisited)</span>
+        <span><span class="swatch" style="background:var(--gray-node);border-color:#475569"></span>GRAY (on DFS stack)</span>
+        <span><span class="swatch" style="background:var(--black-node);border-color:#a78bfa"></span>BLACK (finished)</span>
+        <span><span class="swatch" style="background:var(--white-node);border-color:var(--current);border-width:3px"></span>current</span>
+        <span><span class="eswatch" style="background:var(--edge-tree)"></span>tree edge</span>
+        <span><span class="eswatch" style="background:var(--edge-back)"></span>back edge (cycle!)</span>
+        <span><span class="eswatch" style="background:var(--edge-cross)"></span>cross/forward</span>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:16px">
+      <h2>Playback</h2>
+      <div class="controls">
+        <button id="resetBtn">⟲ Reset</button>
+        <button id="stepBackBtn">◀ Back</button>
+        <button id="playPauseBtn" class="primary">▶ Play</button>
+        <button id="stepFwdBtn">Step ▶</button>
+        <button id="runAllBtn">Run to end</button>
+        <span style="margin-left:12px">Speed</span>
+        <input type="range" id="speedRange" min="1" max="10" value="5" />
+      </div>
+      <div class="status" id="statusBar">Ready. Click <b>Run to end</b> to see the algorithm complete, or <b>Step ▶</b> to walk through it.</div>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="right-col">
+
+    <div class="panel">
+      <h2>Pseudocode</h2>
+      <div class="pseudo" id="pseudo">
+<span class="line" data-line="1"><span class="kw">function</span> <span class="fn">TopologicalSort</span>(G):</span>
+<span class="line" data-line="2">  <span class="kw">for each</span> v <span class="kw">in</span> G: color[v] ← WHITE</span>
+<span class="line" data-line="3">  L ← empty list  <span class="cm">// finish order</span></span>
+<span class="line" data-line="4">  time ← 0</span>
+<span class="line" data-line="5">  <span class="kw">for each</span> v <span class="kw">in</span> G:</span>
+<span class="line" data-line="6">    <span class="kw">if</span> color[v] = WHITE: <span class="fn">DFS-Visit</span>(v)</span>
+<span class="line" data-line="7">  <span class="kw">return</span> reverse(L)</span>
+<span class="line" data-line="8"> </span>
+<span class="line" data-line="9"><span class="kw">function</span> <span class="fn">DFS-Visit</span>(u):</span>
+<span class="line" data-line="10">  time ← time + 1;  d[u] ← time    <span class="cm">// discovery time</span></span>
+<span class="line" data-line="11">  color[u] ← GRAY</span>
+<span class="line" data-line="12">  <span class="kw">for each</span> edge (u → v):</span>
+<span class="line" data-line="13">    <span class="kw">if</span> color[v] = WHITE: <span class="fn">DFS-Visit</span>(v)</span>
+<span class="line" data-line="14">    <span class="kw">else if</span> color[v] = GRAY: <span class="kw">report</span> "cycle!"</span>
+<span class="line" data-line="15">  color[u] ← BLACK</span>
+<span class="line" data-line="16">  time ← time + 1;  f[u] ← time    <span class="cm">// finish time</span></span>
+<span class="line" data-line="17">  <span class="kw">append</span> u <span class="kw">to</span> L</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>DFS Call Stack</h2>
+      <div class="stack-box" id="stackBox">
+        <div class="stack-label">top (currently executing) ↓</div>
+        <div class="stack-empty">empty</div>
+      </div>
+      <div class="help-text">Each frame is a GRAY node waiting for its recursive calls to finish.</div>
+    </div>
+
+    <div class="panel">
+      <h2>Orderings</h2>
+      <div class="topo-row">
+        <span class="topo-label">Finish order L (append on BLACK)</span>
+      </div>
+      <div class="order-list" id="finishList"><span class="order-empty">empty</span></div>
+
+      <div class="topo-row" style="margin-top:10px">
+        <span class="topo-label">Topological order = reverse(L)</span>
+      </div>
+      <div class="order-list" id="topoList"><span class="order-empty">(computed at the end)</span></div>
+    </div>
+
+    <div class="panel">
+      <h2>Event Log</h2>
+      <div class="log" id="logBox"></div>
+    </div>
+
+  </div>
+</div>
+
+<div class="footer-note">Shortcuts: ← / → step, space = play/pause, R = reset. Tip: in <b>+ Edge</b> mode, click the source node first, then the target — edges are <b>directed</b>.</div>
+
+<script>
+"use strict";
+
+/* ===========================================================
+   STATE
+   =========================================================== */
+const state = {
+  nodes: [],     // { id, x, y, label }
+  edges: [],     // { u, v }  DIRECTED from u → v
+  mode: "select",
+  nextId: 0,
+  steps: [],
+  stepIndex: 0,
+  playing: false,
+  playTimer: null,
+  edgeFirst: null,
+  dragging: null,
+};
+
+/* ===========================================================
+   PRESETS
+   =========================================================== */
+const PRESETS = {
+  build: {
+    // Source files → object files → executable
+    nodes: [
+      { id:0, label:"main.c", x:120, y:120 },
+      { id:1, label:"utils.c",x:120, y:250 },
+      { id:2, label:"utils.h",x:120, y:380 },
+      { id:3, label:"main.o", x:420, y:170 },
+      { id:4, label:"utils.o",x:420, y:340 },
+      { id:5, label:"app",    x:680, y:250 },
+    ],
+    edges: [
+      { u:0, v:3 },   // main.c   → main.o
+      { u:2, v:3 },   // utils.h  → main.o
+      { u:1, v:4 },   // utils.c  → utils.o
+      { u:2, v:4 },   // utils.h  → utils.o
+      { u:3, v:5 },   // main.o   → app
+      { u:4, v:5 },   // utils.o  → app
+    ],
+  },
+  multi: {
+    // Many valid topological orders
+    nodes: [
+      { id:0, label:"A", x:120, y:150 },
+      { id:1, label:"B", x:120, y:350 },
+      { id:2, label:"C", x:380, y:250 },
+      { id:3, label:"D", x:620, y:150 },
+      { id:4, label:"E", x:620, y:350 },
+    ],
+    edges: [
+      { u:0, v:2 },   // A → C
+      { u:1, v:2 },   // B → C
+      { u:2, v:3 },   // C → D
+      { u:2, v:4 },   // C → E
+    ],
+  },
+  cycle: {
+    nodes: [
+      { id:0, label:"A", x:120, y:250 },
+      { id:1, label:"B", x:320, y:150 },
+      { id:2, label:"C", x:540, y:250 },
+      { id:3, label:"D", x:320, y:380 },
+    ],
+    edges: [
+      { u:0, v:1 },   // A → B
+      { u:1, v:2 },   // B → C
+      { u:2, v:3 },   // C → D
+      { u:3, v:1 },   // D → B  (cycle: B → C → D → B)
+    ],
+  },
+  empty: { nodes: [], edges: [] },
+};
+
+function loadPreset(key) {
+  const p = PRESETS[key];
+  state.nodes = p.nodes.map(n => ({ ...n }));
+  state.edges = p.edges.map(e => ({ ...e }));
+  state.nextId = state.nodes.length ? Math.max(...state.nodes.map(n => n.id)) + 1 : 0;
+  resetAlgorithm();
+  render();
+}
+
+/* ===========================================================
+   ALGORITHM — produces step trace
+   =========================================================== */
+
+function labelOf(id) {
+  const n = state.nodes.find(n => n.id === id);
+  return n ? n.label : `#${id}`;
+}
+function edgeKey(u, v) { return `${u}->${v}`; }
+
+function buildAdj() {
+  const adj = new Map();
+  state.nodes.forEach(n => adj.set(n.id, []));
+  state.edges.forEach(e => {
+    if (adj.has(e.u) && adj.has(e.v)) adj.get(e.u).push(e.v);
+  });
+  return adj;
+}
+
+function runTopo() {
+  const steps = [];
+  const adj = buildAdj();
+  const color = {};
+  const parent = {};
+  const disc = {};
+  const fin  = {};
+  state.nodes.forEach(n => { color[n.id] = "WHITE"; parent[n.id] = null; });
+  const finishOrder = [];
+  const callStack = [];  // frames: { u, iter }
+  let cycleFound = false;
+  let backEdge = null;
+  let time = 0;
+
+  const snap = (extra = {}) => ({
+    color: { ...color },
+    parent: { ...parent },
+    disc: { ...disc },
+    fin:  { ...fin },
+    time,
+    finishOrder: [...finishOrder],
+    callStack: callStack.map(f => ({ u: f.u, iter: f.iter })),
+    cycle: cycleFound,
+    backEdge,
+    topo: null,
+    ...extra,
+  });
+
+  steps.push({ kind:"init", line:2, msg:"Initialize all vertices to WHITE, parent to null.", ...snap(), current:null, highlightEdge:null });
+  steps.push({ kind:"init-L", line:3, msg:"L ← empty list (will hold finish order).", ...snap(), current:null, highlightEdge:null });
+  steps.push({ kind:"init-time", line:4, msg:"time ← 0. Global timer for discovery / finish timestamps.", ...snap(), current:null, highlightEdge:null });
+
+  // Outer loop: process vertices in label order for deterministic behaviour
+  const sortedNodes = state.nodes.slice().sort((a,b) => a.label.localeCompare(b.label));
+
+  for (const startNode of sortedNodes) {
+    if (cycleFound) break;
+    steps.push({ kind:"outer", line:5, msg:`Outer loop: consider ${startNode.label}. color = ${color[startNode.id]}.`, ...snap(), current:startNode.id, highlightEdge:null });
+
+    if (color[startNode.id] !== "WHITE") {
+      steps.push({ kind:"skip-outer", line:6, msg:`${startNode.label} is ${color[startNode.id]} — skip.`, ...snap(), current:startNode.id, highlightEdge:null });
+      continue;
+    }
+
+    // Enter DFS-Visit(startNode)
+    callStack.push({ u: startNode.id, iter: 0 });
+    time += 1;
+    disc[startNode.id] = time;
+    color[startNode.id] = "GRAY";
+    steps.push({ kind:"enter", line:10, msg:`Call DFS-Visit(${startNode.label}). time ← ${time}, d[${startNode.label}] = ${time}. color ← GRAY. Push frame.`, ...snap(), current:startNode.id, highlightEdge:null });
+
+    // Simulated recursion
+    while (callStack.length && !cycleFound) {
+      const frame = callStack[callStack.length - 1];
+      const u = frame.u;
+      const neighbors = adj.get(u) || [];
+
+      if (frame.iter < neighbors.length) {
+        const v = neighbors[frame.iter];
+        const ek = edgeKey(u, v);
+        steps.push({ kind:"inspect", line:12, msg:`${labelOf(u)} inspects edge ${labelOf(u)} → ${labelOf(v)}. (neighbor ${frame.iter + 1}/${neighbors.length})`, ...snap(), current:u, highlightEdge:ek });
+
+        if (color[v] === "WHITE") {
+          parent[v] = u;
+          frame.iter += 1;  // advance before recursing so we resume correctly
+          callStack.push({ u: v, iter: 0 });
+          time += 1;
+          disc[v] = time;
+          color[v] = "GRAY";
+          steps.push({ kind:"enter", line:10, msg:`${labelOf(v)} is WHITE → recurse DFS-Visit(${labelOf(v)}). time ← ${time}, d[${labelOf(v)}] = ${time}. color ← GRAY.`, ...snap(), current:v, highlightEdge:ek });
+        } else if (color[v] === "GRAY") {
+          backEdge = ek;
+          cycleFound = true;
+          steps.push({ kind:"cycle", line:14, msg:`⚠ ${labelOf(v)} is GRAY — back edge ${labelOf(u)} → ${labelOf(v)}! Cycle detected; graph is not a DAG.`, ...snap(), current:u, highlightEdge:ek });
+          break;
+        } else {
+          // BLACK
+          frame.iter += 1;
+          steps.push({ kind:"skip-edge", line:12, msg:`${labelOf(v)} is BLACK — already finished. Skip (cross/forward edge).`, ...snap(), current:u, highlightEdge:ek });
+        }
+      } else {
+        // All neighbors processed → finalize
+        color[u] = "BLACK";
+        steps.push({ kind:"finish", line:15, msg:`All neighbors of ${labelOf(u)} done. color[${labelOf(u)}] ← BLACK.`, ...snap(), current:u, highlightEdge:null });
+        time += 1;
+        fin[u] = time;
+        steps.push({ kind:"finish-time", line:16, msg:`time ← ${time}, f[${labelOf(u)}] = ${time}.`, ...snap(), current:u, highlightEdge:null });
+        finishOrder.push(u);
+        steps.push({ kind:"append", line:17, msg:`Append ${labelOf(u)} to L. Finish order so far: [${finishOrder.map(labelOf).join(", ")}].`, ...snap(), current:u, highlightEdge:null });
+        callStack.pop();
+        const topFrame = callStack.length ? callStack[callStack.length - 1] : null;
+        steps.push({ kind:"return", line:12, msg:`Return from DFS-Visit(${labelOf(u)}). Pop frame.${topFrame ? ` Resume DFS-Visit(${labelOf(topFrame.u)}).` : ""}`, ...snap(), current:topFrame ? topFrame.u : null, highlightEdge:null });
+      }
+    }
+  }
+
+  if (!cycleFound) {
+    const topo = [...finishOrder].reverse();
+    steps.push({ kind:"done", line:7, msg:`Done. Topological order = reverse(L) = ${topo.map(labelOf).join(" → ")}`, ...snap({ topo }), current:null, highlightEdge:null });
+  } else {
+    steps.push({ kind:"done-cycle", line:14, msg:`Stopped: graph has a cycle. No valid topological order exists.`, ...snap(), current:null, highlightEdge:null });
+  }
+
+  return steps;
+}
+
+/* ===========================================================
+   RENDERING
+   =========================================================== */
+const svg = document.getElementById("graphSvg");
+const edgesLayer = document.getElementById("edgesLayer");
+const edgesHitLayer = document.getElementById("edgesHitLayer");
+const nodesLayer = document.getElementById("nodesLayer");
+
+// Compute endpoint offsets so the arrow ends at the circle boundary, not center.
+const NODE_R = 26;
+function endpointOffset(x1, y1, x2, y2, r = NODE_R) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const dist = Math.hypot(dx, dy) || 1;
+  return { ex: x2 - (dx / dist) * r, ey: y2 - (dy / dist) * r,
+           sx: x1 + (dx / dist) * r, sy: y1 + (dy / dist) * r };
+}
+
+function render() {
+  svg.classList.remove("mode-node","mode-edge","mode-delete","mode-select");
+  svg.classList.add("mode-" + state.mode);
+
+  const helps = {
+    select: "Select mode: drag nodes to rearrange them.",
+    node: "+ Node mode: click on empty canvas to add a node.",
+    edge: "+ Edge mode: click the SOURCE node, then the TARGET node (edge is directed).",
+    delete: "Delete mode: click a node or edge to remove it.",
+  };
+  document.getElementById("modeHelp").textContent = helps[state.mode];
+
+  const step = state.steps[state.stepIndex];
+  const color = step ? step.color : {};
+  const parent = step ? step.parent : {};
+  const highlightEdge = step ? step.highlightEdge : null;
+  const backEdge = step ? step.backEdge : null;
+  const current = step ? step.current : null;
+  const finishOrder = step ? step.finishOrder : [];
+  const disc = step ? step.disc : {};
+  const fin  = step ? step.fin  : {};
+
+  // Tree edges: (parent[v], v) pairs
+  const treeEdges = new Set();
+  Object.keys(parent).forEach(v => {
+    const p = parent[v];
+    if (p !== null && p !== undefined) treeEdges.add(edgeKey(p, +v));
+  });
+
+  // ---- Edges ----
+  edgesLayer.innerHTML = "";
+  edgesHitLayer.innerHTML = "";
+  state.edges.forEach((e, idx) => {
+    const nu = state.nodes.find(n => n.id === e.u);
+    const nv = state.nodes.find(n => n.id === e.v);
+    if (!nu || !nv) return;
+    const key = edgeKey(e.u, e.v);
+
+    // Classify edge for coloring
+    let cls = "edge-line";
+    let marker = "arrowGray";
+    if (backEdge === key) { cls += " back"; marker = "arrowBack"; }
+    else if (highlightEdge === key) { cls += " inspect"; marker = "arrowInspect"; }
+    else if (treeEdges.has(key)) { cls += " tree"; marker = "arrowTree"; }
+    else if (color[e.u] === "BLACK" && color[e.v] === "BLACK" && !treeEdges.has(key)) {
+      cls += " cross"; marker = "arrowCross";
+    }
+
+    const { sx, sy, ex, ey } = endpointOffset(nu.x, nu.y, nv.x, nv.y);
+
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", sx); line.setAttribute("y1", sy);
+    line.setAttribute("x2", ex); line.setAttribute("y2", ey);
+    line.setAttribute("class", cls);
+    line.setAttribute("marker-end", `url(#${marker})`);
+    edgesLayer.appendChild(line);
+
+    const hit = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    hit.setAttribute("x1", nu.x); hit.setAttribute("y1", nu.y);
+    hit.setAttribute("x2", nv.x); hit.setAttribute("y2", nv.y);
+    hit.setAttribute("class", "edge-hitbox");
+    hit.dataset.edgeIdx = idx;
+    edgesHitLayer.appendChild(hit);
+  });
+
+  // ---- Nodes ----
+  nodesLayer.innerHTML = "";
+  state.nodes.forEach(n => {
+    const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    g.dataset.nodeId = n.id;
+    g.setAttribute("transform", `translate(${n.x}, ${n.y})`);
+    g.style.cursor = state.mode === "select" ? "grab" : "pointer";
+
+    const col = color[n.id] || "WHITE";
+    let cls = "node-circle " + col.toLowerCase();
+    if (current === n.id) cls += " current";
+
+    const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    c.setAttribute("r", NODE_R);
+    c.setAttribute("class", cls);
+    g.appendChild(c);
+
+    const lbl = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    lbl.setAttribute("class", "node-label on-" + col.toLowerCase());
+    lbl.setAttribute("y", 0);
+    lbl.textContent = n.label;
+    g.appendChild(lbl);
+
+    const d = disc[n.id];
+    const f = fin[n.id];
+    if (d !== undefined || f !== undefined) {
+      const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      t.setAttribute("class", "time-label");
+      t.setAttribute("y", -(NODE_R + 8));
+      t.textContent = (d !== undefined ? d : "–") + "/" + (f !== undefined ? f : "–");
+      g.appendChild(t);
+    }
+
+    nodesLayer.appendChild(g);
+  });
+
+  // ---- Call stack ----
+  renderStack(step ? step.callStack : []);
+  // ---- Finish / Topo lists ----
+  renderOrder(finishOrder, step && step.topo ? step.topo : null);
+  // ---- Pseudocode highlight ----
+  document.querySelectorAll("#pseudo .line").forEach(el => el.classList.remove("active"));
+  if (step && step.line) {
+    const el = document.querySelector(`#pseudo .line[data-line="${step.line}"]`);
+    if (el) el.classList.add("active");
+  }
+  // ---- Status ----
+  const statusBar = document.getElementById("statusBar");
+  statusBar.classList.remove("error","done");
+  if (step) {
+    statusBar.innerHTML = `<b>Step ${state.stepIndex + 1} / ${state.steps.length}:</b> ${step.msg}`;
+    if (step.kind === "cycle" || step.kind === "done-cycle") statusBar.classList.add("error");
+    if (step.kind === "done") statusBar.classList.add("done");
+  } else {
+    statusBar.textContent = "Ready.";
+  }
+
+  // ---- Buttons ----
+  const atStart = state.stepIndex <= 0;
+  const atEnd = state.stepIndex >= state.steps.length - 1;
+  document.getElementById("stepBackBtn").disabled = atStart || state.steps.length === 0;
+  document.getElementById("stepFwdBtn").disabled = atEnd;
+  document.getElementById("playPauseBtn").disabled = state.steps.length === 0 || atEnd;
+  document.getElementById("playPauseBtn").textContent = state.playing ? "⏸ Pause" : "▶ Play";
+}
+
+function renderStack(frames) {
+  const box = document.getElementById("stackBox");
+  box.innerHTML = "";
+  const lbl = document.createElement("div");
+  lbl.className = "stack-label";
+  lbl.textContent = "bottom (earliest call) ↑";
+  box.appendChild(lbl);
+  if (!frames.length) {
+    const e = document.createElement("div");
+    e.className = "stack-empty";
+    e.textContent = "empty";
+    box.appendChild(e);
+  } else {
+    frames.forEach((f, i) => {
+      const div = document.createElement("div");
+      div.className = "stack-frame" + (i === frames.length - 1 ? " top" : "");
+      div.textContent = `DFS-Visit(${labelOf(f.u)})`;
+      box.appendChild(div);
+    });
+  }
+  const lbl2 = document.createElement("div");
+  lbl2.className = "stack-label";
+  lbl2.style.alignSelf = "flex-start";
+  lbl2.textContent = "top (currently executing) ↓";
+  box.appendChild(lbl2);
+}
+
+function renderOrder(finishOrder, topo) {
+  const fl = document.getElementById("finishList");
+  fl.innerHTML = "";
+  if (!finishOrder.length) {
+    fl.innerHTML = '<span class="order-empty">empty</span>';
+  } else {
+    finishOrder.forEach((id, i) => {
+      if (i > 0) {
+        const s = document.createElement("span");
+        s.className = "arrow-sep"; s.textContent = "→"; fl.appendChild(s);
+      }
+      const c = document.createElement("span");
+      c.className = "order-chip" + (i === 0 ? " first" : "");
+      c.textContent = labelOf(id);
+      fl.appendChild(c);
+    });
+  }
+  const tl = document.getElementById("topoList");
+  tl.innerHTML = "";
+  if (!topo || !topo.length) {
+    tl.innerHTML = '<span class="order-empty">(computed at the end)</span>';
+  } else {
+    topo.forEach((id, i) => {
+      if (i > 0) {
+        const s = document.createElement("span");
+        s.className = "arrow-sep"; s.textContent = "→"; tl.appendChild(s);
+      }
+      const c = document.createElement("span");
+      c.className = "order-chip" + (i === 0 ? " first" : "");
+      c.textContent = labelOf(id);
+      tl.appendChild(c);
+    });
+  }
+}
+
+function logEvent(msg) {
+  const box = document.getElementById("logBox");
+  const div = document.createElement("div");
+  div.textContent = msg;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+
+/* ===========================================================
+   INTERACTION
+   =========================================================== */
+function clientToSvg(evt) {
+  const pt = svg.createSVGPoint();
+  pt.x = evt.clientX; pt.y = evt.clientY;
+  const ctm = svg.getScreenCTM();
+  if (!ctm) return { x: evt.clientX, y: evt.clientY };
+  const p = pt.matrixTransform(ctm.inverse());
+  return { x: p.x, y: p.y };
+}
+
+document.querySelectorAll(".mode-pills button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".mode-pills button").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    state.mode = btn.dataset.mode;
+    state.edgeFirst = null;
+    render();
+  });
+});
+
+svg.addEventListener("mousedown", (e) => {
+  const target = e.target;
+  const nodeG = target.closest("[data-node-id]");
+  const edgeEl = target.closest("[data-edge-idx]");
+  const pos = clientToSvg(e);
+
+  if (state.mode === "select") {
+    if (nodeG) {
+      const id = +nodeG.dataset.nodeId;
+      const n = state.nodes.find(n => n.id === id);
+      state.dragging = { id, dx: pos.x - n.x, dy: pos.y - n.y };
+    }
+    return;
+  }
+  if (state.mode === "node") {
+    if (!nodeG && !edgeEl) addNode(pos.x, pos.y);
+    return;
+  }
+  if (state.mode === "edge") {
+    if (nodeG) {
+      const id = +nodeG.dataset.nodeId;
+      if (state.edgeFirst === null) {
+        state.edgeFirst = id;
+        logEvent(`Edge: picked ${labelOf(id)} as source.`);
+      } else if (state.edgeFirst === id) {
+        state.edgeFirst = null;
+        logEvent(`Edge: cancelled.`);
+      } else {
+        addEdge(state.edgeFirst, id);
+        state.edgeFirst = null;
+      }
+      render();
+    }
+    return;
+  }
+  if (state.mode === "delete") {
+    if (nodeG) {
+      const id = +nodeG.dataset.nodeId;
+      state.nodes = state.nodes.filter(n => n.id !== id);
+      state.edges = state.edges.filter(e => e.u !== id && e.v !== id);
+      resetAlgorithm();
+      render();
+    } else if (edgeEl) {
+      const idx = +edgeEl.dataset.edgeIdx;
+      state.edges.splice(idx, 1);
+      resetAlgorithm();
+      render();
+    }
+    return;
+  }
+});
+
+svg.addEventListener("mousemove", (e) => {
+  if (state.mode !== "select" || !state.dragging) return;
+  const pos = clientToSvg(e);
+  const n = state.nodes.find(n => n.id === state.dragging.id);
+  if (!n) return;
+  n.x = Math.max(30, Math.min(770, pos.x - state.dragging.dx));
+  n.y = Math.max(30, Math.min(470, pos.y - state.dragging.dy));
+  render();
+});
+window.addEventListener("mouseup", () => { state.dragging = null; });
+
+function addNode(x, y) {
+  const id = state.nextId++;
+  const used = new Set(state.nodes.map(n => n.label));
+  let lbl;
+  for (let i = 0; i < 26; i++) {
+    const ch = String.fromCharCode(65 + i);
+    if (!used.has(ch)) { lbl = ch; break; }
+  }
+  if (!lbl) { let k = 1; while (used.has("N"+k)) k++; lbl = "N"+k; }
+  state.nodes.push({
+    id,
+    x: Math.max(30, Math.min(770, x)),
+    y: Math.max(30, Math.min(470, y)),
+    label: lbl
+  });
+  resetAlgorithm();
+  render();
+}
+
+function addEdge(u, v) {
+  // Disallow self-loops and duplicates (in the same direction)
+  if (u === v) { alert("Self-loops create an immediate cycle and aren't allowed here."); return; }
+  if (state.edges.some(e => e.u === u && e.v === v)) {
+    alert("That directed edge already exists.");
+    return;
+  }
+  state.edges.push({ u, v });
+  resetAlgorithm();
+  render();
+}
+
+/* ===========================================================
+   PLAYBACK
+   =========================================================== */
+function resetAlgorithm() {
+  pausePlayback();
+  state.steps = runTopo();
+  state.stepIndex = 0;
+}
+function stepForward() { if (state.stepIndex < state.steps.length - 1) { state.stepIndex++; render(); } }
+function stepBack()    { if (state.stepIndex > 0) { state.stepIndex--; render(); } }
+function playPause()   { state.playing ? pausePlayback() : startPlayback(); }
+function startPlayback() {
+  if (state.stepIndex >= state.steps.length - 1) return;
+  state.playing = true;
+  const speed = +document.getElementById("speedRange").value;
+  const delay = 1100 - speed * 100;
+  state.playTimer = setInterval(() => {
+    if (state.stepIndex >= state.steps.length - 1) pausePlayback();
+    else { state.stepIndex++; render(); }
+  }, delay);
+  render();
+}
+function pausePlayback() {
+  state.playing = false;
+  if (state.playTimer) clearInterval(state.playTimer);
+  state.playTimer = null;
+  render();
+}
+
+document.getElementById("stepFwdBtn").addEventListener("click", stepForward);
+document.getElementById("stepBackBtn").addEventListener("click", stepBack);
+document.getElementById("playPauseBtn").addEventListener("click", playPause);
+document.getElementById("resetBtn").addEventListener("click", () => { resetAlgorithm(); render(); });
+document.getElementById("runAllBtn").addEventListener("click", () => {
+  pausePlayback();
+  state.stepIndex = Math.max(0, state.steps.length - 1);
+  render();
+});
+document.getElementById("speedRange").addEventListener("input", () => {
+  if (state.playing) { pausePlayback(); startPlayback(); }
+});
+document.getElementById("loadPresetBtn").addEventListener("click", () => {
+  loadPreset(document.getElementById("presetSelect").value);
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+  if (e.key === "ArrowRight") { e.preventDefault(); stepForward(); }
+  else if (e.key === "ArrowLeft") { e.preventDefault(); stepBack(); }
+  else if (e.key === " ") { e.preventDefault(); playPause(); }
+  else if (e.key === "r" || e.key === "R") { resetAlgorithm(); render(); }
+});
+
+/* ===========================================================
+   BOOT
+   =========================================================== */
+loadPreset("build");
+</script>
+</body>
+</html>
