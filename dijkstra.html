@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dijkstra's Algorithm — Interactive Visualizer</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --panel-2: #334155;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --accent-2: #22d3ee;
+    --ok: #4ade80;
+    --warn: #fbbf24;
+    --danger: #f87171;
+    --visited: #a78bfa;
+    --frontier: #fbbf24;
+    --source: #4ade80;
+    --current: #f87171;
+    --edge: #64748b;
+    --edge-relaxed: #22d3ee;
+    --edge-tree: #a78bfa;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+  header {
+    padding: 18px 24px;
+    background: linear-gradient(90deg, #0c4a6e, #164e63);
+    border-bottom: 1px solid #0e7490;
+  }
+  header h1 { margin: 0; font-size: 22px; }
+  header p { margin: 4px 0 0; color: #bae6fd; font-size: 14px; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(520px, 2fr) minmax(360px, 1fr);
+    gap: 16px;
+    padding: 16px;
+  }
+  @media (max-width: 1000px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--panel-2);
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .panel h2 {
+    margin: 0 0 10px;
+    font-size: 15px;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  button, select {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid #475569;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background 0.15s;
+  }
+  button:hover:not(:disabled) { background: #475569; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.primary { background: var(--accent); color: #0c1424; border-color: var(--accent); font-weight: 600; }
+  button.primary:hover:not(:disabled) { background: var(--accent-2); }
+  button.danger { background: #7f1d1d; border-color: #991b1b; }
+  button.danger:hover:not(:disabled) { background: #991b1b; }
+  .controls label { font-size: 13px; color: var(--muted); }
+  .controls input[type="range"] { vertical-align: middle; }
+
+  .mode-pills {
+    display: flex;
+    gap: 4px;
+    background: #0f172a;
+    padding: 3px;
+    border-radius: 6px;
+    border: 1px solid #475569;
+  }
+  .mode-pills button {
+    padding: 4px 10px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-size: 12px;
+    border-radius: 4px;
+  }
+  .mode-pills button.active {
+    background: var(--accent);
+    color: #0c1424;
+    font-weight: 600;
+  }
+
+  /* Canvas */
+  .canvas-wrap {
+    position: relative;
+    background: #0b1220;
+    border-radius: 8px;
+    border: 1px solid #334155;
+    overflow: hidden;
+  }
+  svg { display: block; width: 100%; height: 500px; cursor: default; }
+  svg.mode-node { cursor: crosshair; }
+  svg.mode-edge { cursor: pointer; }
+  svg.mode-delete { cursor: not-allowed; }
+  svg.mode-source { cursor: pointer; }
+
+  .node-circle { fill: #1e293b; stroke: #64748b; stroke-width: 2; transition: fill 0.2s, stroke 0.2s; }
+  .node-circle.source { fill: var(--source); stroke: #16a34a; }
+  .node-circle.visited { fill: var(--visited); stroke: #7c3aed; }
+  .node-circle.frontier { fill: var(--frontier); stroke: #d97706; }
+  .node-circle.current { fill: var(--current); stroke: #dc2626; stroke-width: 3; }
+  .node-label { fill: #f1f5f9; font-size: 14px; font-weight: 600; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+  .node-dist { fill: #fef3c7; font-size: 11px; text-anchor: middle; pointer-events: none; }
+
+  .edge-line { stroke: var(--edge); stroke-width: 2; transition: stroke 0.2s, stroke-width 0.2s; }
+  .edge-line.relaxed { stroke: var(--edge-relaxed); stroke-width: 3; }
+  .edge-line.tree { stroke: var(--edge-tree); stroke-width: 3; }
+  .edge-weight {
+    fill: #fde68a;
+    font-size: 12px;
+    font-weight: 600;
+    text-anchor: middle;
+    pointer-events: none;
+    paint-order: stroke;
+    stroke: #0b1220;
+    stroke-width: 3;
+  }
+  .edge-hitbox { stroke: transparent; stroke-width: 14; cursor: pointer; }
+
+  /* Right column */
+  .right-col { display: flex; flex-direction: column; gap: 16px; }
+
+  /* PQ visualization */
+  .pq-container {
+    background: #0b1220;
+    border-radius: 6px;
+    padding: 10px;
+    min-height: 120px;
+  }
+  .pq-heap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .pq-row { display: flex; gap: 8px; justify-content: center; }
+  .pq-item {
+    background: var(--panel-2);
+    border: 1px solid #475569;
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: "SF Mono", Consolas, monospace;
+    min-width: 56px;
+    text-align: center;
+    transition: all 0.2s;
+  }
+  .pq-item.min { background: var(--ok); color: #052e16; border-color: #16a34a; font-weight: 700; }
+  .pq-item.stale { opacity: 0.4; text-decoration: line-through; }
+  .pq-empty { color: var(--muted); font-style: italic; font-size: 13px; text-align: center; padding: 20px 0; }
+  .pq-label { color: var(--muted); font-size: 11px; margin-bottom: 4px; }
+
+  /* Distance table */
+  .dist-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    font-family: "SF Mono", Consolas, monospace;
+  }
+  .dist-table th, .dist-table td {
+    padding: 5px 8px;
+    text-align: center;
+    border-bottom: 1px solid #334155;
+  }
+  .dist-table th { color: var(--accent); font-weight: 600; font-size: 11px; text-transform: uppercase; }
+  .dist-table tr.visited td { color: var(--visited); }
+  .dist-table tr.current td { background: rgba(248, 113, 113, 0.15); }
+  .dist-table td.infty { color: var(--muted); }
+
+  /* Pseudocode */
+  .pseudo {
+    background: #0b1220;
+    border-radius: 6px;
+    padding: 10px 8px;
+    font-family: "SF Mono", Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.65;
+    overflow-x: auto;
+  }
+  .pseudo .line {
+    padding: 1px 8px;
+    border-radius: 3px;
+    display: block;
+    white-space: pre;
+    color: #cbd5e1;
+  }
+  .pseudo .line.active { background: rgba(251, 191, 36, 0.25); border-left: 3px solid var(--warn); padding-left: 5px; }
+  .pseudo .kw { color: #f472b6; }
+  .pseudo .fn { color: #60a5fa; }
+  .pseudo .cm { color: #64748b; font-style: italic; }
+
+  /* Status / log */
+  .status {
+    padding: 8px 10px;
+    background: #0b1220;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #e2e8f0;
+    border-left: 3px solid var(--accent);
+    min-height: 36px;
+  }
+  .log {
+    max-height: 140px;
+    overflow-y: auto;
+    background: #0b1220;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 12px;
+    font-family: "SF Mono", Consolas, monospace;
+    color: #cbd5e1;
+  }
+  .log div { padding: 2px 0; border-bottom: 1px dotted #1e293b; }
+  .log div:last-child { border: none; }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .swatch { width: 12px; height: 12px; border-radius: 50%; border: 2px solid; display: inline-block; }
+
+  .help-text {
+    font-size: 12px;
+    color: var(--muted);
+    margin: 6px 0;
+    font-style: italic;
+  }
+
+  .footer-note {
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    padding: 10px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Dijkstra's Algorithm — Interactive Visualizer</h1>
+  <p>Click-through single-source shortest paths on a weighted graph. Watch the priority queue, distance table, and pseudocode update in lockstep.</p>
+</header>
+
+<div class="layout">
+
+  <!-- LEFT: graph + controls -->
+  <div>
+    <div class="panel">
+      <h2>Graph</h2>
+
+      <div class="controls">
+        <label>Preset:</label>
+        <select id="presetSelect">
+          <option value="classic">Classic 6-node</option>
+          <option value="grid">Grid-like</option>
+          <option value="tricky">Tricky (non-greedy trap)</option>
+          <option value="empty">Empty canvas</option>
+        </select>
+        <button id="loadPresetBtn">Load</button>
+
+        <span style="flex:1"></span>
+
+        <span class="mode-pills" role="tablist" aria-label="Edit mode">
+          <button data-mode="select" class="active" title="Select / drag">Select</button>
+          <button data-mode="node" title="Click canvas to add node">+ Node</button>
+          <button data-mode="edge" title="Click two nodes to connect">+ Edge</button>
+          <button data-mode="source" title="Click a node to set source">Source</button>
+          <button data-mode="delete" title="Click to delete">Delete</button>
+        </span>
+      </div>
+
+      <div class="help-text" id="modeHelp">Select mode: drag nodes to rearrange them.</div>
+
+      <div class="canvas-wrap">
+        <svg id="graphSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5"
+                    markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b" />
+            </marker>
+          </defs>
+          <g id="edgesLayer"></g>
+          <g id="edgesHitLayer"></g>
+          <g id="edgeWeightsLayer"></g>
+          <g id="nodesLayer"></g>
+        </svg>
+      </div>
+
+      <div class="legend" style="margin-top:10px">
+        <span><span class="swatch" style="background:var(--source);border-color:#16a34a"></span>Source</span>
+        <span><span class="swatch" style="background:var(--current);border-color:#dc2626"></span>Current (being processed)</span>
+        <span><span class="swatch" style="background:var(--frontier);border-color:#d97706"></span>In priority queue</span>
+        <span><span class="swatch" style="background:var(--visited);border-color:#7c3aed"></span>Finalized (visited)</span>
+        <span><span class="swatch" style="background:#1e293b;border-color:#64748b"></span>Unreached</span>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:16px">
+      <h2>Playback</h2>
+      <div class="controls">
+        <button id="resetBtn">⟲ Reset</button>
+        <button id="stepBackBtn" title="Step back">◀ Back</button>
+        <button id="playPauseBtn" class="primary">▶ Play</button>
+        <button id="stepFwdBtn" title="Step forward">Step ▶</button>
+        <button id="runAllBtn">Run to end</button>
+        <span style="margin-left:12px">Speed</span>
+        <input type="range" id="speedRange" min="1" max="10" value="5" />
+      </div>
+      <div class="status" id="statusBar">Ready. Click <b>Run to end</b> to see Dijkstra run on the current graph, or <b>Step ▶</b> to walk through it one operation at a time.</div>
+    </div>
+  </div>
+
+  <!-- RIGHT: pseudocode + PQ + table -->
+  <div class="right-col">
+
+    <div class="panel">
+      <h2>Pseudocode</h2>
+      <div class="pseudo" id="pseudo">
+<span class="line" data-line="1"><span class="kw">function</span> <span class="fn">Dijkstra</span>(G, source):</span>
+<span class="line" data-line="2">  <span class="kw">for each</span> vertex v <span class="kw">in</span> G: dist[v] ← ∞; prev[v] ← null</span>
+<span class="line" data-line="3">  dist[source] ← 0</span>
+<span class="line" data-line="4">  PQ ← priority queue; insert (0, source)</span>
+<span class="line" data-line="5">  <span class="kw">while</span> PQ is not empty:</span>
+<span class="line" data-line="6">    (d, u) ← PQ.extract-min()</span>
+<span class="line" data-line="7">    <span class="kw">if</span> d &gt; dist[u]: <span class="kw">continue</span>  <span class="cm">// stale entry</span></span>
+<span class="line" data-line="8">    <span class="kw">for each</span> neighbor v of u <span class="kw">with</span> weight w(u,v):</span>
+<span class="line" data-line="9">      <span class="kw">if</span> dist[u] + w &lt; dist[v]:</span>
+<span class="line" data-line="10">        dist[v] ← dist[u] + w; prev[v] ← u</span>
+<span class="line" data-line="11">        PQ.insert((dist[v], v))  <span class="cm">// relax edge</span></span>
+<span class="line" data-line="12">  <span class="kw">return</span> dist, prev</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Priority Queue (Min-Heap)</h2>
+      <div class="pq-container" id="pqContainer">
+        <div class="pq-empty">Empty</div>
+      </div>
+      <div class="help-text">Each box = (distance, node). Green = next to extract. Struck-through = stale duplicate (will be skipped on line 7).</div>
+    </div>
+
+    <div class="panel">
+      <h2>Distances &amp; Predecessors</h2>
+      <table class="dist-table" id="distTable">
+        <thead><tr><th>Node</th><th>dist</th><th>prev</th><th>status</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="panel">
+      <h2>Event Log</h2>
+      <div class="log" id="logBox"></div>
+    </div>
+
+  </div>
+</div>
+
+<div class="footer-note">Tip: right-click an edge weight to edit it. Click a node in <b>Source</b> mode to change the start vertex.</div>
+
+<script>
+"use strict";
+
+/* ===========================================================
+   STATE
+   =========================================================== */
+const state = {
+  nodes: [],      // { id, x, y, label }
+  edges: [],      // { u, v, w }  (undirected)
+  source: null,
+  mode: "select",
+  nextId: 0,
+  // algo
+  steps: [],
+  stepIndex: 0,
+  playing: false,
+  playTimer: null,
+  // ui
+  edgeFirst: null, // id of first node picked in edge mode
+  dragging: null,  // {id, dx, dy}
+};
+
+/* ===========================================================
+   PRESETS
+   =========================================================== */
+const PRESETS = {
+  classic: {
+    // Classic textbook-ish graph, 6 nodes
+    nodes: [
+      { id: 0, label: "A", x: 120, y: 250 },
+      { id: 1, label: "B", x: 280, y: 120 },
+      { id: 2, label: "C", x: 280, y: 380 },
+      { id: 3, label: "D", x: 460, y: 120 },
+      { id: 4, label: "E", x: 460, y: 380 },
+      { id: 5, label: "F", x: 640, y: 250 },
+    ],
+    edges: [
+      { u: 0, v: 1, w: 4 },
+      { u: 0, v: 2, w: 2 },
+      { u: 1, v: 2, w: 1 },
+      { u: 1, v: 3, w: 5 },
+      { u: 2, v: 3, w: 8 },
+      { u: 2, v: 4, w: 10 },
+      { u: 3, v: 4, w: 2 },
+      { u: 3, v: 5, w: 6 },
+      { u: 4, v: 5, w: 3 },
+    ],
+    source: 0,
+  },
+  grid: {
+    nodes: [
+      { id: 0, label: "S", x: 120, y: 120 },
+      { id: 1, label: "B", x: 320, y: 120 },
+      { id: 2, label: "C", x: 520, y: 120 },
+      { id: 3, label: "D", x: 120, y: 300 },
+      { id: 4, label: "E", x: 320, y: 300 },
+      { id: 5, label: "F", x: 520, y: 300 },
+      { id: 6, label: "G", x: 120, y: 440 },
+      { id: 7, label: "H", x: 320, y: 440 },
+      { id: 8, label: "T", x: 520, y: 440 },
+    ],
+    edges: [
+      { u:0,v:1,w:3 },{ u:1,v:2,w:2 },
+      { u:3,v:4,w:1 },{ u:4,v:5,w:4 },
+      { u:6,v:7,w:2 },{ u:7,v:8,w:5 },
+      { u:0,v:3,w:2 },{ u:1,v:4,w:6 },{ u:2,v:5,w:1 },
+      { u:3,v:6,w:3 },{ u:4,v:7,w:2 },{ u:5,v:8,w:1 },
+    ],
+    source: 0,
+  },
+  tricky: {
+    // Shows greedy takes the long edge first but a detour is shorter
+    nodes: [
+      { id: 0, label: "S", x: 120, y: 250 },
+      { id: 1, label: "A", x: 320, y: 130 },
+      { id: 2, label: "B", x: 320, y: 370 },
+      { id: 3, label: "C", x: 520, y: 250 },
+      { id: 4, label: "T", x: 700, y: 250 },
+    ],
+    edges: [
+      { u:0,v:1,w:1 },
+      { u:0,v:2,w:4 },
+      { u:1,v:2,w:2 },
+      { u:1,v:3,w:5 },
+      { u:2,v:3,w:1 },
+      { u:3,v:4,w:3 },
+    ],
+    source: 0,
+  },
+  empty: { nodes: [], edges: [], source: null },
+};
+
+function loadPreset(key) {
+  const p = PRESETS[key];
+  state.nodes = p.nodes.map(n => ({ ...n }));
+  state.edges = p.edges.map(e => ({ ...e }));
+  state.source = p.source;
+  state.nextId = state.nodes.length ? Math.max(...state.nodes.map(n => n.id)) + 1 : 0;
+  resetAlgorithm();
+  render();
+}
+
+/* ===========================================================
+   DIJKSTRA — produces a trace of steps
+   =========================================================== */
+
+// Minimal binary min-heap on (dist, nodeId, insertionSeq)
+class MinHeap {
+  constructor() { this.a = []; }
+  get size() { return this.a.length; }
+  peek() { return this.a[0]; }
+  push(item) {
+    this.a.push(item);
+    this._siftUp(this.a.length - 1);
+  }
+  pop() {
+    if (!this.a.length) return undefined;
+    const top = this.a[0];
+    const last = this.a.pop();
+    if (this.a.length) { this.a[0] = last; this._siftDown(0); }
+    return top;
+  }
+  _cmp(i, j) {
+    const A = this.a[i], B = this.a[j];
+    return A[0] - B[0] || A[2] - B[2]; // by dist, then insertion order for stability
+  }
+  _siftUp(i) {
+    while (i > 0) {
+      const p = (i - 1) >> 1;
+      if (this._cmp(i, p) < 0) { [this.a[i], this.a[p]] = [this.a[p], this.a[i]]; i = p; }
+      else break;
+    }
+  }
+  _siftDown(i) {
+    const n = this.a.length;
+    while (true) {
+      let l = 2*i+1, r = 2*i+2, m = i;
+      if (l < n && this._cmp(l, m) < 0) m = l;
+      if (r < n && this._cmp(r, m) < 0) m = r;
+      if (m !== i) { [this.a[i], this.a[m]] = [this.a[m], this.a[i]]; i = m; }
+      else break;
+    }
+  }
+  snapshot() { return this.a.map(x => ({ d: x[0], v: x[1], seq: x[2] })); }
+}
+
+function buildAdj() {
+  const adj = new Map();
+  state.nodes.forEach(n => adj.set(n.id, []));
+  state.edges.forEach(e => {
+    if (adj.has(e.u) && adj.has(e.v)) {
+      adj.get(e.u).push({ to: e.v, w: e.w });
+      adj.get(e.v).push({ to: e.u, w: e.w });
+    }
+  });
+  return adj;
+}
+
+function runDijkstra() {
+  const steps = [];
+  if (state.source == null || !state.nodes.some(n => n.id === state.source)) {
+    steps.push({ kind:"error", msg: "Pick a source node first (Source mode → click a node).", line:1, dist:{}, prev:{}, visited:new Set(), pq:[], current:null });
+    return steps;
+  }
+  const adj = buildAdj();
+  const dist = {}, prev = {};
+  state.nodes.forEach(n => { dist[n.id] = Infinity; prev[n.id] = null; });
+
+  const visited = new Set();
+  const heap = new MinHeap();
+  let seq = 0;
+
+  const snap = (extra = {}) => ({
+    dist: { ...dist },
+    prev: { ...prev },
+    visited: new Set(visited),
+    pq: heap.snapshot(),
+    ...extra,
+  });
+
+  steps.push({ kind:"init", line:2, msg:"Initialize all distances to ∞, predecessors to null.", ...snap(), current:null, highlightEdge:null });
+
+  dist[state.source] = 0;
+  steps.push({ kind:"set-source", line:3, msg:`dist[${label(state.source)}] ← 0`, ...snap(), current:state.source, highlightEdge:null });
+
+  heap.push([0, state.source, seq++]);
+  steps.push({ kind:"pq-insert", line:4, msg:`Insert (0, ${label(state.source)}) into priority queue.`, ...snap(), current:state.source, highlightEdge:null });
+
+  while (heap.size) {
+    steps.push({ kind:"while", line:5, msg:`PQ not empty (size ${heap.size}). Continue.`, ...snap(), current:null, highlightEdge:null });
+
+    const [d, u, _] = heap.pop();
+    steps.push({ kind:"extract", line:6, msg:`Extract min: (${d}, ${label(u)}).`, ...snap(), current:u, highlightEdge:null });
+
+    if (d > dist[u]) {
+      steps.push({ kind:"stale", line:7, msg:`Stale entry (d=${d} > dist[${label(u)}]=${dist[u]}). Skip.`, ...snap(), current:u, highlightEdge:null });
+      continue;
+    }
+
+    if (visited.has(u)) {
+      // shouldn't usually trigger because of stale check, but defensive
+      continue;
+    }
+    visited.add(u);
+    steps.push({ kind:"finalize", line:7, msg:`Finalize ${label(u)} with dist = ${dist[u]}.`, ...snap(), current:u, highlightEdge:null });
+
+    const neighbors = adj.get(u) || [];
+    for (const { to: v, w } of neighbors) {
+      steps.push({ kind:"inspect", line:8, msg:`Inspect edge ${label(u)}—${label(v)} (weight ${w}).`, ...snap(), current:u, highlightEdge:edgeKey(u,v) });
+      const alt = dist[u] + w;
+      if (alt < dist[v]) {
+        const old = dist[v];
+        dist[v] = alt;
+        prev[v] = u;
+        steps.push({ kind:"relax", line:10, msg:`Relax: dist[${label(v)}] ${old === Infinity ? "∞" : old} → ${alt}, prev[${label(v)}] = ${label(u)}.`, ...snap(), current:u, highlightEdge:edgeKey(u,v) });
+        heap.push([alt, v, seq++]);
+        steps.push({ kind:"pq-insert", line:11, msg:`Insert (${alt}, ${label(v)}) into priority queue.`, ...snap(), current:u, highlightEdge:edgeKey(u,v) });
+      } else {
+        steps.push({ kind:"no-relax", line:9, msg:`No improvement (dist[${label(u)}]+${w} = ${alt} ≥ dist[${label(v)}] = ${dist[v] === Infinity ? "∞" : dist[v]}).`, ...snap(), current:u, highlightEdge:edgeKey(u,v) });
+      }
+    }
+  }
+
+  steps.push({ kind:"done", line:12, msg:"Priority queue empty. Algorithm complete — all reachable shortest paths found.", ...snap(), current:null, highlightEdge:null });
+  return steps;
+}
+
+function label(id) {
+  const n = state.nodes.find(n => n.id === id);
+  return n ? n.label : `#${id}`;
+}
+function edgeKey(u, v) { return u < v ? `${u}-${v}` : `${v}-${u}`; }
+
+/* ===========================================================
+   RENDERING
+   =========================================================== */
+const svg = document.getElementById("graphSvg");
+const edgesLayer = document.getElementById("edgesLayer");
+const edgesHitLayer = document.getElementById("edgesHitLayer");
+const edgeWeightsLayer = document.getElementById("edgeWeightsLayer");
+const nodesLayer = document.getElementById("nodesLayer");
+
+function render() {
+  // sync svg mode class
+  svg.classList.remove("mode-node","mode-edge","mode-delete","mode-source","mode-select");
+  svg.classList.add("mode-" + state.mode);
+
+  // help
+  const helps = {
+    select: "Select mode: drag nodes to rearrange them.",
+    node: "+ Node mode: click on empty canvas to add a node.",
+    edge: "+ Edge mode: click one node, then another. Enter a weight when prompted.",
+    source: "Source mode: click a node to set it as the start vertex.",
+    delete: "Delete mode: click a node or edge to remove it.",
+  };
+  document.getElementById("modeHelp").textContent = helps[state.mode];
+
+  // derive per-step visual state
+  const step = state.steps[state.stepIndex];
+  const visited = step ? step.visited : new Set();
+  const pq = step ? step.pq : [];
+  const current = step ? step.current : null;
+  const dist = step ? step.dist : {};
+  const prev = step ? step.prev : {};
+  const highlightEdge = step ? step.highlightEdge : null;
+
+  // Which nodes are "in the PQ" (non-stale)?
+  const pqNodes = new Set();
+  const bestInPQ = {};
+  pq.forEach(({d, v}) => {
+    if (bestInPQ[v] === undefined || d < bestInPQ[v]) bestInPQ[v] = d;
+  });
+  Object.keys(bestInPQ).forEach(v => {
+    const vid = +v;
+    if (!visited.has(vid) && dist[vid] !== undefined && bestInPQ[v] === dist[vid]) pqNodes.add(vid);
+  });
+
+  // Tree edges = prev pointers
+  const treeEdges = new Set();
+  Object.keys(prev).forEach(v => {
+    const p = prev[v];
+    if (p !== null && p !== undefined) treeEdges.add(edgeKey(+v, p));
+  });
+
+  // ---- Edges ----
+  edgesLayer.innerHTML = "";
+  edgesHitLayer.innerHTML = "";
+  edgeWeightsLayer.innerHTML = "";
+  state.edges.forEach((e, idx) => {
+    const nu = state.nodes.find(n => n.id === e.u);
+    const nv = state.nodes.find(n => n.id === e.v);
+    if (!nu || !nv) return;
+    const key = edgeKey(e.u, e.v);
+
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", nu.x); line.setAttribute("y1", nu.y);
+    line.setAttribute("x2", nv.x); line.setAttribute("y2", nv.y);
+    line.setAttribute("class", "edge-line" +
+      (highlightEdge === key ? " relaxed" : "") +
+      (treeEdges.has(key) && highlightEdge !== key ? " tree" : ""));
+    edgesLayer.appendChild(line);
+
+    const hit = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    hit.setAttribute("x1", nu.x); hit.setAttribute("y1", nu.y);
+    hit.setAttribute("x2", nv.x); hit.setAttribute("y2", nv.y);
+    hit.setAttribute("class", "edge-hitbox");
+    hit.dataset.edgeIdx = idx;
+    edgesHitLayer.appendChild(hit);
+
+    const mx = (nu.x + nv.x) / 2;
+    const my = (nu.y + nv.y) / 2;
+    const wt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    wt.setAttribute("x", mx); wt.setAttribute("y", my - 6);
+    wt.setAttribute("class", "edge-weight");
+    wt.textContent = e.w;
+    wt.dataset.edgeIdx = idx;
+    wt.style.cursor = "pointer";
+    edgeWeightsLayer.appendChild(wt);
+  });
+
+  // ---- Nodes ----
+  nodesLayer.innerHTML = "";
+  state.nodes.forEach(n => {
+    const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    g.dataset.nodeId = n.id;
+    g.setAttribute("transform", `translate(${n.x}, ${n.y})`);
+    g.style.cursor = state.mode === "select" ? "grab" : "pointer";
+
+    let cls = "node-circle";
+    if (current === n.id) cls += " current";
+    else if (visited.has(n.id)) cls += " visited";
+    else if (pqNodes.has(n.id)) cls += " frontier";
+    if (state.source === n.id) cls += " source";
+
+    const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    c.setAttribute("r", 22);
+    c.setAttribute("class", cls);
+    g.appendChild(c);
+
+    const lbl = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    lbl.setAttribute("class", "node-label");
+    lbl.setAttribute("y", -2);
+    lbl.textContent = n.label;
+    g.appendChild(lbl);
+
+    const d = dist[n.id];
+    const dtext = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    dtext.setAttribute("class", "node-dist");
+    dtext.setAttribute("y", 12);
+    dtext.textContent = (d === undefined || d === Infinity) ? "∞" : d;
+    g.appendChild(dtext);
+
+    nodesLayer.appendChild(g);
+  });
+
+  // ---- PQ panel ----
+  renderPQ(pq, dist, visited);
+  // ---- Dist table ----
+  renderDistTable(dist, prev, visited, current);
+  // ---- Pseudocode highlight ----
+  document.querySelectorAll("#pseudo .line").forEach(el => el.classList.remove("active"));
+  if (step && step.line) {
+    const el = document.querySelector(`#pseudo .line[data-line="${step.line}"]`);
+    if (el) el.classList.add("active");
+  }
+  // ---- Status ----
+  const statusBar = document.getElementById("statusBar");
+  if (step) {
+    statusBar.innerHTML = `<b>Step ${state.stepIndex + 1} / ${state.steps.length}:</b> ${step.msg}`;
+  } else {
+    statusBar.textContent = "Ready. Click Run to end or Step ▶ to begin.";
+  }
+
+  // ---- Buttons ----
+  const atStart = state.stepIndex <= 0;
+  const atEnd = state.stepIndex >= state.steps.length - 1;
+  document.getElementById("stepBackBtn").disabled = atStart || state.steps.length === 0;
+  document.getElementById("stepFwdBtn").disabled = atEnd;
+  document.getElementById("playPauseBtn").disabled = state.steps.length === 0 || atEnd;
+  document.getElementById("playPauseBtn").textContent = state.playing ? "⏸ Pause" : "▶ Play";
+}
+
+function renderPQ(pq, dist, visited) {
+  const c = document.getElementById("pqContainer");
+  if (!pq || !pq.length) {
+    c.innerHTML = '<div class="pq-empty">Empty</div>';
+    return;
+  }
+  // Render as binary heap levels
+  let html = '<div class="pq-label">Heap layout (root = min):</div><div class="pq-heap">';
+  let i = 0, level = 0;
+  while (i < pq.length) {
+    const count = Math.min(1 << level, pq.length - i);
+    html += '<div class="pq-row">';
+    for (let j = 0; j < count; j++) {
+      const item = pq[i + j];
+      const isMin = (i + j) === 0;
+      const isStale = !visited.has(item.v) && dist[item.v] !== undefined && item.d > dist[item.v];
+      const cls = "pq-item" + (isMin ? " min" : "") + (isStale ? " stale" : "");
+      html += `<div class="${cls}">(${item.d}, ${label(item.v)})</div>`;
+    }
+    html += '</div>';
+    i += count; level++;
+  }
+  html += '</div>';
+  c.innerHTML = html;
+}
+
+function renderDistTable(dist, prev, visited, current) {
+  const tbody = document.querySelector("#distTable tbody");
+  tbody.innerHTML = "";
+  state.nodes.slice().sort((a,b)=>a.label.localeCompare(b.label)).forEach(n => {
+    const tr = document.createElement("tr");
+    const d = dist[n.id];
+    const p = prev[n.id];
+    let status = "—";
+    if (visited.has(n.id)) status = "finalized";
+    else if (d !== undefined && d !== Infinity) status = "in PQ";
+    if (visited.has(n.id)) tr.classList.add("visited");
+    if (current === n.id) tr.classList.add("current");
+    tr.innerHTML = `
+      <td><b>${n.label}</b>${state.source === n.id ? " ⭐" : ""}</td>
+      <td class="${d===undefined||d===Infinity?'infty':''}">${d===undefined||d===Infinity?'∞':d}</td>
+      <td>${p===null||p===undefined?'—':label(p)}</td>
+      <td>${status}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function logEvent(msg) {
+  const box = document.getElementById("logBox");
+  const div = document.createElement("div");
+  div.textContent = msg;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+
+/* ===========================================================
+   INTERACTION
+   =========================================================== */
+
+// Convert client (px) to SVG user coords, respecting viewBox scaling
+function clientToSvg(evt) {
+  const pt = svg.createSVGPoint();
+  pt.x = evt.clientX; pt.y = evt.clientY;
+  const ctm = svg.getScreenCTM();
+  if (!ctm) return { x: evt.clientX, y: evt.clientY };
+  const inv = ctm.inverse();
+  const p = pt.matrixTransform(inv);
+  return { x: p.x, y: p.y };
+}
+
+// Mode buttons
+document.querySelectorAll(".mode-pills button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".mode-pills button").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    state.mode = btn.dataset.mode;
+    state.edgeFirst = null;
+    render();
+  });
+});
+
+// SVG clicks — delegated
+svg.addEventListener("mousedown", (e) => {
+  const target = e.target;
+  const nodeG = target.closest("[data-node-id]");
+  const edgeEl = target.closest("[data-edge-idx]");
+  const pos = clientToSvg(e);
+
+  if (state.mode === "select") {
+    if (nodeG) {
+      const id = +nodeG.dataset.nodeId;
+      const n = state.nodes.find(n => n.id === id);
+      state.dragging = { id, dx: pos.x - n.x, dy: pos.y - n.y };
+    }
+    return;
+  }
+  if (state.mode === "node") {
+    if (!nodeG && !edgeEl) {
+      addNode(pos.x, pos.y);
+    }
+    return;
+  }
+  if (state.mode === "edge") {
+    if (nodeG) {
+      const id = +nodeG.dataset.nodeId;
+      if (state.edgeFirst === null) {
+        state.edgeFirst = id;
+        logEvent(`Edge: picked ${label(id)} as first endpoint.`);
+      } else if (state.edgeFirst === id) {
+        state.edgeFirst = null;
+        logEvent(`Edge: cancelled.`);
+      } else {
+        promptAddEdge(state.edgeFirst, id);
+        state.edgeFirst = null;
+      }
+      render();
+    }
+    return;
+  }
+  if (state.mode === "source") {
+    if (nodeG) {
+      state.source = +nodeG.dataset.nodeId;
+      resetAlgorithm();
+      logEvent(`Source set to ${label(state.source)}.`);
+      render();
+    }
+    return;
+  }
+  if (state.mode === "delete") {
+    if (nodeG) {
+      const id = +nodeG.dataset.nodeId;
+      state.nodes = state.nodes.filter(n => n.id !== id);
+      state.edges = state.edges.filter(e => e.u !== id && e.v !== id);
+      if (state.source === id) state.source = null;
+      resetAlgorithm();
+      render();
+    } else if (edgeEl) {
+      const idx = +edgeEl.dataset.edgeIdx;
+      state.edges.splice(idx, 1);
+      resetAlgorithm();
+      render();
+    }
+    return;
+  }
+});
+
+svg.addEventListener("mousemove", (e) => {
+  if (state.mode !== "select" || !state.dragging) return;
+  const pos = clientToSvg(e);
+  const n = state.nodes.find(n => n.id === state.dragging.id);
+  if (!n) return;
+  n.x = Math.max(30, Math.min(770, pos.x - state.dragging.dx));
+  n.y = Math.max(30, Math.min(470, pos.y - state.dragging.dy));
+  render();
+});
+window.addEventListener("mouseup", () => { state.dragging = null; });
+
+// Right-click on edge weight → edit
+svg.addEventListener("contextmenu", (e) => {
+  const edgeEl = e.target.closest("[data-edge-idx]");
+  if (edgeEl) {
+    e.preventDefault();
+    const idx = +edgeEl.dataset.edgeIdx;
+    const cur = state.edges[idx].w;
+    const inp = prompt(`New weight for edge ${label(state.edges[idx].u)}—${label(state.edges[idx].v)}:`, cur);
+    if (inp !== null) {
+      const w = parseInt(inp, 10);
+      if (!isNaN(w) && w >= 0) {
+        state.edges[idx].w = w;
+        resetAlgorithm();
+        render();
+      } else {
+        alert("Please enter a non-negative integer.");
+      }
+    }
+  }
+});
+
+function addNode(x, y) {
+  const id = state.nextId++;
+  const label = nextLabel();
+  state.nodes.push({ id, x: Math.max(30, Math.min(770, x)), y: Math.max(30, Math.min(470, y)), label });
+  if (state.source === null) state.source = id;
+  resetAlgorithm();
+  render();
+}
+
+function nextLabel() {
+  // Reuse letters A–Z, then N1, N2...
+  const used = new Set(state.nodes.map(n => n.label));
+  for (let i = 0; i < 26; i++) {
+    const ch = String.fromCharCode(65 + i);
+    if (!used.has(ch)) return ch;
+  }
+  let k = 1;
+  while (used.has("N" + k)) k++;
+  return "N" + k;
+}
+
+function promptAddEdge(u, v) {
+  // Reject duplicates (undirected)
+  if (state.edges.some(e => (e.u === u && e.v === v) || (e.u === v && e.v === u))) {
+    alert("An edge between those nodes already exists. Delete it first or right-click its weight to edit.");
+    return;
+  }
+  const inp = prompt(`Weight for edge ${label(u)}—${label(v)} (non-negative integer):`, "1");
+  if (inp === null) return;
+  const w = parseInt(inp, 10);
+  if (isNaN(w) || w < 0) { alert("Please enter a non-negative integer."); return; }
+  state.edges.push({ u, v, w });
+  resetAlgorithm();
+  render();
+}
+
+/* ===========================================================
+   PLAYBACK CONTROLS
+   =========================================================== */
+
+function resetAlgorithm() {
+  pausePlayback();
+  state.steps = runDijkstra();
+  state.stepIndex = 0;
+}
+
+function stepForward() {
+  if (state.stepIndex < state.steps.length - 1) {
+    state.stepIndex++;
+    render();
+  }
+}
+function stepBack() {
+  if (state.stepIndex > 0) {
+    state.stepIndex--;
+    render();
+  }
+}
+
+function playPause() {
+  if (state.playing) pausePlayback();
+  else startPlayback();
+}
+function startPlayback() {
+  if (state.stepIndex >= state.steps.length - 1) return;
+  state.playing = true;
+  const speed = +document.getElementById("speedRange").value; // 1..10
+  const delay = 1100 - speed * 100; // 1000ms .. 100ms
+  state.playTimer = setInterval(() => {
+    if (state.stepIndex >= state.steps.length - 1) {
+      pausePlayback();
+    } else {
+      state.stepIndex++;
+      render();
+    }
+  }, delay);
+  render();
+}
+function pausePlayback() {
+  state.playing = false;
+  if (state.playTimer) clearInterval(state.playTimer);
+  state.playTimer = null;
+  render();
+}
+
+document.getElementById("stepFwdBtn").addEventListener("click", stepForward);
+document.getElementById("stepBackBtn").addEventListener("click", stepBack);
+document.getElementById("playPauseBtn").addEventListener("click", playPause);
+document.getElementById("resetBtn").addEventListener("click", () => { resetAlgorithm(); render(); });
+document.getElementById("runAllBtn").addEventListener("click", () => {
+  pausePlayback();
+  state.stepIndex = Math.max(0, state.steps.length - 1);
+  render();
+});
+document.getElementById("speedRange").addEventListener("input", () => {
+  if (state.playing) { pausePlayback(); startPlayback(); }
+});
+
+// Preset loading
+document.getElementById("loadPresetBtn").addEventListener("click", () => {
+  loadPreset(document.getElementById("presetSelect").value);
+});
+
+// Keyboard shortcuts
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+  if (e.key === "ArrowRight") { e.preventDefault(); stepForward(); }
+  else if (e.key === "ArrowLeft") { e.preventDefault(); stepBack(); }
+  else if (e.key === " ") { e.preventDefault(); playPause(); }
+  else if (e.key === "r" || e.key === "R") { resetAlgorithm(); render(); }
+});
+
+/* ===========================================================
+   BOOT
+   =========================================================== */
+loadPreset("classic");
+</script>
+</body>
+</html>
