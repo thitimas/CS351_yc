@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>K-Nearest Neighbors (KNN) — Interactive Visualizer</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --panel-2: #334155;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --accent-2: #22d3ee;
+    --ok: #4ade80;
+    --warn: #fbbf24;
+    --danger: #f87171;
+    --c0: #ef4444;   /* class A */
+    --c1: #3b82f6;   /* class B */
+    --c2: #22c55e;   /* class C */
+    --query: #fbbf24;
+    --neighbor-line: #fbbf24;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+  header {
+    padding: 18px 24px;
+    background: linear-gradient(90deg, #0c4a6e, #164e63);
+    border-bottom: 1px solid #0e7490;
+  }
+  header h1 { margin: 0; font-size: 22px; }
+  header p { margin: 4px 0 0; color: #bae6fd; font-size: 14px; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(520px, 2fr) minmax(360px, 1fr);
+    gap: 16px;
+    padding: 16px;
+  }
+  @media (max-width: 1000px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--panel-2);
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .panel h2 {
+    margin: 0 0 10px;
+    font-size: 15px;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  button, select {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid #475569;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background 0.15s;
+  }
+  button:hover:not(:disabled) { background: #475569; }
+  .controls label { font-size: 13px; color: var(--muted); }
+  input[type="range"] { vertical-align: middle; }
+  input[type="checkbox"] { vertical-align: middle; margin-right: 4px; }
+
+  .mode-pills {
+    display: flex; gap: 4px;
+    background: #0f172a;
+    padding: 3px;
+    border-radius: 6px;
+    border: 1px solid #475569;
+  }
+  .mode-pills button {
+    padding: 4px 10px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-size: 12px;
+    border-radius: 4px;
+  }
+  .mode-pills button.active {
+    background: var(--accent);
+    color: #0c1424;
+    font-weight: 600;
+  }
+
+  .canvas-wrap {
+    position: relative;
+    background: #0b1220;
+    border-radius: 8px;
+    border: 1px solid #334155;
+    overflow: hidden;
+  }
+  svg { display: block; width: 100%; height: 500px; cursor: crosshair; }
+  svg.mode-add { cursor: copy; }
+  svg.mode-delete { cursor: not-allowed; }
+
+  .grid-bg { fill: #0b1220; }
+  .axis-line { stroke: #334155; stroke-width: 1; }
+  .train-pt {
+    stroke: #0b1220;
+    stroke-width: 1.5;
+    transition: opacity 0.2s, r 0.2s;
+  }
+  .train-pt.neighbor { stroke: var(--neighbor-line); stroke-width: 3; }
+  .train-pt.dimmed { opacity: 0.35; }
+  .neighbor-line {
+    stroke: var(--neighbor-line);
+    stroke-width: 1.5;
+    stroke-dasharray: 4 3;
+    fill: none;
+    pointer-events: none;
+  }
+  .k-circle {
+    stroke: var(--neighbor-line);
+    stroke-width: 1.5;
+    fill: none;
+    stroke-dasharray: 6 4;
+    pointer-events: none;
+    opacity: 0.55;
+  }
+  .query-pt {
+    fill: #0b1220;
+    stroke: var(--query);
+    stroke-width: 3;
+  }
+  .query-cross {
+    stroke: var(--query);
+    stroke-width: 2;
+    pointer-events: none;
+  }
+  .boundary-cell { pointer-events: none; }
+
+  .right-col { display: flex; flex-direction: column; gap: 16px; }
+
+  .pseudo {
+    background: #0b1220;
+    border-radius: 6px;
+    padding: 10px 8px;
+    font-family: "SF Mono", Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.65;
+    overflow-x: auto;
+  }
+  .pseudo .line {
+    padding: 1px 8px;
+    border-radius: 3px;
+    display: block;
+    white-space: pre;
+    color: #cbd5e1;
+  }
+  .pseudo .kw { color: #f472b6; }
+  .pseudo .fn { color: #60a5fa; }
+  .pseudo .cm { color: #64748b; font-style: italic; }
+
+  .complexity {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .complexity th, .complexity td {
+    padding: 6px 8px;
+    text-align: left;
+    border-bottom: 1px solid #334155;
+  }
+  .complexity th { color: var(--accent); text-transform: uppercase; font-size: 11px; letter-spacing: 0.4px; }
+  .complexity td.big { font-family: "SF Mono", Consolas, monospace; color: #fde68a; }
+  .complexity .muted { color: var(--muted); font-size: 11px; }
+
+  .vote-row {
+    display: grid;
+    grid-template-columns: 80px 1fr 60px;
+    gap: 8px;
+    align-items: center;
+    padding: 4px 0;
+    font-size: 13px;
+  }
+  .vote-bar-bg {
+    background: #0b1220;
+    height: 22px;
+    border-radius: 4px;
+    border: 1px solid #334155;
+    overflow: hidden;
+  }
+  .vote-bar {
+    height: 100%;
+    transition: width 0.25s;
+  }
+  .vote-count {
+    text-align: right;
+    font-family: "SF Mono", Consolas, monospace;
+    font-size: 13px;
+  }
+
+  .prediction-box {
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: #0b1220;
+    border-radius: 6px;
+    border-left: 4px solid var(--ok);
+    font-size: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .pred-pill {
+    display: inline-block;
+    padding: 4px 14px;
+    border-radius: 14px;
+    color: #0b1220;
+    font-weight: 700;
+    font-size: 14px;
+    font-family: "SF Mono", Consolas, monospace;
+  }
+
+  .dist-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+    font-family: "SF Mono", Consolas, monospace;
+  }
+  .dist-table th, .dist-table td {
+    padding: 4px 6px;
+    text-align: left;
+    border-bottom: 1px solid #334155;
+  }
+  .dist-table th { color: var(--accent); font-weight: 600; font-size: 11px; text-transform: uppercase; }
+  .dist-table tr.in-k { background: rgba(251, 191, 36, 0.12); }
+  .dist-table tr.kth td { border-bottom: 2px solid var(--neighbor-line); }
+  .class-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: middle; margin-right: 6px; }
+
+  .status {
+    padding: 8px 10px;
+    background: #0b1220;
+    border-radius: 6px;
+    font-size: 13px;
+    border-left: 3px solid var(--accent);
+  }
+
+  .help-text {
+    font-size: 12px;
+    color: var(--muted);
+    margin: 6px 0;
+    font-style: italic;
+  }
+  .footer-note {
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    padding: 10px;
+  }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .swatch { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+
+  /* Distance formula cards */
+  .formula-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .formula-card {
+    background: #0b1220;
+    border: 1px solid #334155;
+    border-left: 3px solid #334155;
+    border-radius: 6px;
+    padding: 8px 10px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .formula-card:hover { background: #111c30; }
+  .formula-card.active {
+    border-left-color: var(--accent);
+    background: #112030;
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+  .formula-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 3px;
+  }
+  .formula-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .formula-tag {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: "SF Mono", Consolas, monospace;
+  }
+  .formula-card.active .formula-tag {
+    color: var(--accent);
+  }
+  .formula-body {
+    font-family: "Latin Modern Math", "Cambria Math", "STIX Two Math", "Times New Roman", serif;
+    font-size: 14.5px;
+    color: #e2e8f0;
+    line-height: 1.5;
+    padding: 2px 0;
+  }
+  .formula-body var { font-style: italic; color: #fde68a; }
+  .formula-body .op { color: #94a3b8; padding: 0 2px; }
+  .formula-body sup, .formula-body sub { font-size: 0.78em; }
+  .formula-now {
+    font-size: 11.5px;
+    color: var(--ok);
+    font-family: "SF Mono", Consolas, monospace;
+    margin-top: 3px;
+  }
+  .formula-card:not(.active) .formula-now { color: var(--muted); }
+  .formula-note {
+    font-size: 11.5px;
+    color: var(--muted);
+    margin-top: 1px;
+    font-style: italic;
+  }
+  .p-input {
+    width: 60px;
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid #475569;
+    padding: 3px 6px;
+    border-radius: 4px;
+    font-family: "SF Mono", Consolas, monospace;
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>K-Nearest Neighbors — Interactive Visualizer</h1>
+  <p>A lazy classifier with no training. Move the yellow query point, slide K, and watch the prediction recompute from the K closest training points.</p>
+</header>
+
+<div class="layout">
+
+  <!-- LEFT -->
+  <div>
+    <div class="panel">
+      <h2>2-D Feature Space</h2>
+
+      <div class="controls">
+        <label>Preset:</label>
+        <select id="presetSelect">
+          <option value="separated">Two well-separated clusters</option>
+          <option value="three">Three classes</option>
+          <option value="overlap">Overlapping clusters (K matters!)</option>
+          <option value="moons">Moons</option>
+          <option value="empty">Empty canvas</option>
+        </select>
+        <button id="loadPresetBtn">Load</button>
+
+        <span style="flex:1"></span>
+
+        <span class="mode-pills">
+          <button data-mode="query" class="active" title="Click anywhere to move query point">Query</button>
+          <button data-mode="add" title="Click to add a training point in the selected class">+ Point</button>
+          <button data-mode="delete" title="Click a training point to delete it">Delete</button>
+        </span>
+      </div>
+
+      <div class="controls">
+        <label>Class for new points:</label>
+        <select id="classSelect">
+          <option value="0">Class A (red)</option>
+          <option value="1">Class B (blue)</option>
+          <option value="2">Class C (green)</option>
+        </select>
+        <span style="flex:1"></span>
+        <label><input type="checkbox" id="boundaryToggle" /> Show decision boundary</label>
+      </div>
+
+      <div class="help-text" id="modeHelp">Query mode: click anywhere on the plot to move the query point.</div>
+
+      <div class="canvas-wrap">
+        <svg id="plotSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" preserveAspectRatio="xMidYMid meet">
+          <g id="boundaryLayer"></g>
+          <g id="axisLayer"></g>
+          <g id="circleLayer"></g>
+          <g id="lineLayer"></g>
+          <g id="pointsLayer"></g>
+          <g id="queryLayer"></g>
+        </svg>
+      </div>
+
+      <div class="legend" style="margin-top:10px">
+        <span><span class="swatch" style="background:var(--c0)"></span>Class A</span>
+        <span><span class="swatch" style="background:var(--c1)"></span>Class B</span>
+        <span><span class="swatch" style="background:var(--c2)"></span>Class C</span>
+        <span><span class="swatch" style="background:transparent;border:2px solid var(--query)"></span>query point</span>
+        <span><span class="swatch" style="background:transparent;border:2px dashed var(--neighbor-line)"></span>K-neighborhood</span>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:16px">
+      <h2>K — number of neighbors</h2>
+      <div class="controls">
+        <input type="range" id="kRange" min="1" max="15" value="3" />
+        <span id="kValue" style="font-family:monospace; min-width:60px;">k = 3</span>
+        <span style="flex:1"></span>
+        <label>Distance:</label>
+        <select id="distSelect">
+          <option value="euclidean">Euclidean (L₂)</option>
+          <option value="manhattan">Manhattan (L₁)</option>
+          <option value="chebyshev">Chebyshev (L∞)</option>
+          <option value="minkowski">Minkowski (Lₚ)</option>
+          <option value="sqeuclidean">Squared Euclidean</option>
+          <option value="cosine">Cosine</option>
+        </select>
+        <span id="pInputWrap" style="display:none">
+          <label style="margin-left:6px">p =</label>
+          <input id="pInput" class="p-input" type="number" min="0.5" max="10" step="0.5" value="3" />
+        </span>
+      </div>
+      <div class="status" id="statusBar">Move the query point or change K to see how the classification is computed.</div>
+    </div>
+
+    <div class="panel" style="margin-top:16px">
+      <h2>Distance Formulas</h2>
+      <p class="help-text" style="margin-top:0">Click a card to switch metric. Each card shows the formula in 2-D and the current value between the query point and its <em>nearest</em> training neighbor.</p>
+      <div class="formula-grid" id="formulaGrid">
+        <div class="formula-card" data-metric="euclidean">
+          <div class="formula-head">
+            <span class="formula-name">Euclidean</span>
+            <span class="formula-tag">L₂ &nbsp; "as the crow flies"</span>
+          </div>
+          <div class="formula-body">
+            <var>d</var><span class="op">=</span>√<span style="border-top:1px solid currentColor; padding-top:1px">(<var>x</var><sub>1</sub>−<var>y</var><sub>1</sub>)<sup>2</sup> <span class="op">+</span> (<var>x</var><sub>2</sub>−<var>y</var><sub>2</sub>)<sup>2</sup></span>
+          </div>
+          <div class="formula-note">Most common metric. Units: same as features. Sensitive to scale.</div>
+          <div class="formula-now" id="now-euclidean">d = —</div>
+        </div>
+
+        <div class="formula-card" data-metric="manhattan">
+          <div class="formula-head">
+            <span class="formula-name">Manhattan</span>
+            <span class="formula-tag">L₁ &nbsp; "city block / taxicab"</span>
+          </div>
+          <div class="formula-body">
+            <var>d</var><span class="op">=</span>|<var>x</var><sub>1</sub>−<var>y</var><sub>1</sub>|<span class="op">+</span>|<var>x</var><sub>2</sub>−<var>y</var><sub>2</sub>|
+          </div>
+          <div class="formula-note">Sum of axis-aligned steps. More robust to outliers than Euclidean.</div>
+          <div class="formula-now" id="now-manhattan">d = —</div>
+        </div>
+
+        <div class="formula-card" data-metric="chebyshev">
+          <div class="formula-head">
+            <span class="formula-name">Chebyshev</span>
+            <span class="formula-tag">L∞ &nbsp; "king's move"</span>
+          </div>
+          <div class="formula-body">
+            <var>d</var><span class="op">=</span>max(|<var>x</var><sub>1</sub>−<var>y</var><sub>1</sub>|, |<var>x</var><sub>2</sub>−<var>y</var><sub>2</sub>|)
+          </div>
+          <div class="formula-note">Limit of Lₚ as p → ∞. Only the largest single-axis gap matters.</div>
+          <div class="formula-now" id="now-chebyshev">d = —</div>
+        </div>
+
+        <div class="formula-card" data-metric="minkowski">
+          <div class="formula-head">
+            <span class="formula-name">Minkowski (general L<sub>p</sub>)</span>
+            <span class="formula-tag" id="minkowskiTag">p = 3</span>
+          </div>
+          <div class="formula-body">
+            <var>d</var><span class="op">=</span>(|<var>x</var><sub>1</sub>−<var>y</var><sub>1</sub>|<sup><var>p</var></sup><span class="op">+</span>|<var>x</var><sub>2</sub>−<var>y</var><sub>2</sub>|<sup><var>p</var></sup>)<sup>1/<var>p</var></sup>
+          </div>
+          <div class="formula-note">Generalises L₁, L₂, L∞ (p = 1, 2, ∞). Try p = 0.5 for a "star" neighborhood.</div>
+          <div class="formula-now" id="now-minkowski">d = —</div>
+        </div>
+
+        <div class="formula-card" data-metric="sqeuclidean">
+          <div class="formula-head">
+            <span class="formula-name">Squared Euclidean</span>
+            <span class="formula-tag">no √, ranks identically</span>
+          </div>
+          <div class="formula-body">
+            <var>d</var><span class="op">=</span>(<var>x</var><sub>1</sub>−<var>y</var><sub>1</sub>)<sup>2</sup><span class="op">+</span>(<var>x</var><sub>2</sub>−<var>y</var><sub>2</sub>)<sup>2</sup>
+          </div>
+          <div class="formula-note">Skips the square root — same neighbor ranking, faster for KNN. Not a true metric (no triangle inequality).</div>
+          <div class="formula-now" id="now-sqeuclidean">d = —</div>
+        </div>
+
+        <div class="formula-card" data-metric="cosine">
+          <div class="formula-head">
+            <span class="formula-name">Cosine</span>
+            <span class="formula-tag">angle, not magnitude</span>
+          </div>
+          <div class="formula-body">
+            <var>d</var><span class="op">=</span>1<span class="op">−</span><span style="display:inline-block; vertical-align:middle; text-align:center">
+              <span style="display:block; border-bottom:1px solid currentColor; padding:0 4px"><var>x</var><span class="op">·</span><var>y</var></span>
+              <span style="display:block; padding:0 4px">‖<var>x</var>‖&nbsp;‖<var>y</var>‖</span>
+            </span>
+          </div>
+          <div class="formula-note">0 = same direction, 1 = orthogonal, 2 = opposite. Origin = canvas center for this demo.</div>
+          <div class="formula-now" id="now-cosine">d = —</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="right-col">
+
+    <div class="panel">
+      <h2>Pseudocode</h2>
+      <div class="pseudo" id="pseudo">
+<span class="line"><span class="kw">function</span> <span class="fn">KNN-Classify</span>(training_set, x_query, k):</span>
+<span class="line">  distances ← []</span>
+<span class="line">  <span class="kw">for each</span> (x_i, label_i) <span class="kw">in</span> training_set:</span>
+<span class="line">    d ← <span class="fn">distance</span>(x_query, x_i)</span>
+<span class="line">    distances.<span class="fn">append</span>((d, label_i))</span>
+<span class="line">  <span class="fn">sort</span> distances ascending by d</span>
+<span class="line">  neighbors ← first k of distances</span>
+<span class="line">  votes ← <span class="fn">count_labels</span>(neighbors)</span>
+<span class="line">  <span class="kw">return</span> <span class="fn">argmax</span>(votes)   <span class="cm">// majority class</span></span>
+      </div>
+      <div class="help-text">No "training" step — KNN is a lazy learner: it just stores the data and does all the work at query time.</div>
+    </div>
+
+    <div class="panel">
+      <h2>Runtime Complexity</h2>
+      <table class="complexity">
+        <tr><th>Phase</th><th>Time</th><th>Space</th></tr>
+        <tr>
+          <td>Train (just store)</td>
+          <td class="big">O(1)</td>
+          <td class="big">O(n·d)</td>
+        </tr>
+        <tr>
+          <td>Predict (this demo)</td>
+          <td class="big">O(n·d + n·log n)</td>
+          <td class="big">O(n)</td>
+        </tr>
+      </table>
+      <div class="help-text">n = training size, d = feature dimensions. Computing all distances is O(n·d); sorting them to pick the K nearest is O(n·log n).</div>
+    </div>
+
+    <div class="panel">
+      <h2>Vote Tally (top K)</h2>
+      <div id="voteList"></div>
+      <div class="prediction-box" id="predBox">
+        <span>Prediction:</span>
+        <span class="pred-pill" id="predPill">—</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Distance Ranking</h2>
+      <table class="dist-table" id="distTable">
+        <thead><tr><th>#</th><th>Class</th><th>Coord</th><th>Distance</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="help-text">Highlighted rows are the K nearest used for voting. The thicker line marks the K-th nearest (the radius of the dashed circle).</div>
+    </div>
+
+  </div>
+</div>
+
+<div class="footer-note">Tip: try the "Overlapping" preset, set K=1 vs K=11, and sweep the query around the boundary. Watch the prediction flip — that's the bias-variance trade-off in action.</div>
+
+<script>
+"use strict";
+
+/* ===========================================================
+   STATE
+   =========================================================== */
+const state = {
+  points: [],          // { x, y, c }   c = class index 0/1/2
+  query: { x: 400, y: 250 },
+  k: 3,
+  distance: "euclidean",
+  p: 3,                // for Minkowski
+  mode: "query",
+  classForNew: 0,
+  showBoundary: false,
+  nextId: 0,
+};
+
+const W = 800, H = 500;
+const CLASS_COLORS = ["#ef4444", "#3b82f6", "#22c55e"];
+const CLASS_NAMES = ["A", "B", "C"];
+
+/* ===========================================================
+   PRESETS
+   =========================================================== */
+function gauss(cx, cy, n, sd, c) {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    // Box-Muller
+    const u = Math.random(), v = Math.random();
+    const r = Math.sqrt(-2 * Math.log(u || 1e-9));
+    const a = 2 * Math.PI * v;
+    const x = cx + r * Math.cos(a) * sd;
+    const y = cy + r * Math.sin(a) * sd;
+    if (x > 20 && x < W - 20 && y > 20 && y < H - 20) out.push({ x, y, c });
+  }
+  return out;
+}
+
+const PRESETS = {
+  separated: () => [
+    ...gauss(220, 200, 18, 35, 0),
+    ...gauss(580, 320, 18, 35, 1),
+  ],
+  three: () => [
+    ...gauss(180, 130, 14, 35, 0),
+    ...gauss(600, 130, 14, 35, 1),
+    ...gauss(400, 380, 14, 35, 2),
+  ],
+  overlap: () => [
+    ...gauss(330, 250, 22, 75, 0),
+    ...gauss(470, 250, 22, 75, 1),
+  ],
+  moons: () => {
+    // Two interleaving half-moons
+    const a = [], b = [];
+    for (let i = 0; i < 30; i++) {
+      const t = (i / 29) * Math.PI;
+      const jx = (Math.random() - 0.5) * 30;
+      const jy = (Math.random() - 0.5) * 30;
+      a.push({ x: 280 + 200 * Math.cos(t)     + jx, y: 320 - 130 * Math.sin(t)     + jy, c: 0 });
+      b.push({ x: 460 + 200 * Math.cos(t + Math.PI) + jx, y: 220 - 130 * Math.sin(t + Math.PI) + jy, c: 1 });
+    }
+    return [...a, ...b].filter(p => p.x > 20 && p.x < W - 20 && p.y > 20 && p.y < H - 20);
+  },
+  empty: () => [],
+};
+
+function loadPreset(key) {
+  const pts = PRESETS[key]();
+  state.points = pts.map(p => ({ ...p, id: state.nextId++ }));
+  state.query = { x: W / 2, y: H / 2 };
+  syncKMax();
+  render();
+}
+
+function syncKMax() {
+  const range = document.getElementById("kRange");
+  const max = Math.max(1, state.points.length);
+  range.max = Math.min(25, max);
+  if (state.k > +range.max) state.k = +range.max;
+  range.value = state.k;
+  document.getElementById("kValue").textContent = "k = " + state.k;
+}
+
+/* ===========================================================
+   DISTANCE METRICS
+   For "cosine" we treat each point as a vector from canvas center.
+   =========================================================== */
+const CX = W / 2, CY = H / 2;
+function dist(a, b, kind, p) {
+  const dx = a.x - b.x, dy = a.y - b.y;
+  if (kind === "manhattan")    return Math.abs(dx) + Math.abs(dy);
+  if (kind === "chebyshev")    return Math.max(Math.abs(dx), Math.abs(dy));
+  if (kind === "sqeuclidean")  return dx * dx + dy * dy;
+  if (kind === "minkowski") {
+    const pp = (p == null ? state.p : p);
+    if (pp === Infinity) return Math.max(Math.abs(dx), Math.abs(dy));
+    return Math.pow(Math.pow(Math.abs(dx), pp) + Math.pow(Math.abs(dy), pp), 1 / pp);
+  }
+  if (kind === "cosine") {
+    const ax = a.x - CX, ay = a.y - CY;
+    const bx = b.x - CX, by = b.y - CY;
+    const na = Math.sqrt(ax * ax + ay * ay);
+    const nb = Math.sqrt(bx * bx + by * by);
+    if (na === 0 || nb === 0) return 1;  // undefined → treat as orthogonal
+    const cos = (ax * bx + ay * by) / (na * nb);
+    return 1 - Math.max(-1, Math.min(1, cos));
+  }
+  // Euclidean (default)
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+/* ===========================================================
+   KNN CLASSIFICATION
+   =========================================================== */
+function classify(query, k, kind, p) {
+  if (state.points.length === 0) return { ranked: [], votes: {}, prediction: null, kthDist: 0 };
+  const ranked = state.points.map(pt => ({ p: pt, d: dist(query, pt, kind, p) }))
+                             .sort((a, b) => a.d - b.d);
+  const kk = Math.min(k, ranked.length);
+  const top = ranked.slice(0, kk);
+  const votes = { 0: 0, 1: 0, 2: 0 };
+  const dsums = { 0: 0, 1: 0, 2: 0 };
+  top.forEach(({ p, d }) => { votes[p.c] += 1; dsums[p.c] += d; });
+  // Pick class with max votes; tiebreak: smallest sum of distances among tied classes
+  let best = -1, bestVotes = -1, bestSum = Infinity;
+  for (const c of Object.keys(votes)) {
+    const v = votes[c];
+    if (v > bestVotes || (v === bestVotes && dsums[c] < bestSum)) {
+      best = +c; bestVotes = v; bestSum = dsums[c];
+    }
+  }
+  if (bestVotes === 0) best = null;
+  return { ranked, votes, prediction: best, kthDist: top.length ? top[top.length - 1].d : 0, top };
+}
+
+/* ===========================================================
+   DECISION BOUNDARY (sampled grid)
+   =========================================================== */
+const GRID_W = 50, GRID_H = 32;  // 50 x 32 = 1600 cells
+function computeBoundary(k, kind, p) {
+  const cells = [];
+  if (state.points.length === 0) return cells;
+  const cellW = W / GRID_W, cellH = H / GRID_H;
+  for (let gy = 0; gy < GRID_H; gy++) {
+    for (let gx = 0; gx < GRID_W; gx++) {
+      const cx = (gx + 0.5) * cellW;
+      const cy = (gy + 0.5) * cellH;
+      const r = classify({ x: cx, y: cy }, k, kind, p);
+      cells.push({ gx, gy, c: r.prediction });
+    }
+  }
+  return { cells, cellW, cellH };
+}
+
+/* ===========================================================
+   RENDERING
+   =========================================================== */
+const svg = document.getElementById("plotSvg");
+const boundaryLayer = document.getElementById("boundaryLayer");
+const axisLayer = document.getElementById("axisLayer");
+const circleLayer = document.getElementById("circleLayer");
+const lineLayer = document.getElementById("lineLayer");
+const pointsLayer = document.getElementById("pointsLayer");
+const queryLayer = document.getElementById("queryLayer");
+
+function render() {
+  svg.classList.remove("mode-add","mode-delete","mode-query");
+  svg.classList.add("mode-" + state.mode);
+
+  const helps = {
+    query: "Query mode: click anywhere on the plot to move the query point.",
+    add: "+ Point mode: click anywhere to add a training point in the selected class.",
+    delete: "Delete mode: click a training point to remove it.",
+  };
+  document.getElementById("modeHelp").textContent = helps[state.mode];
+
+  const result = classify(state.query, state.k, state.distance, state.p);
+  const neighborIds = new Set((result.top || []).map(t => t.p.id));
+
+  // ---- Decision boundary ----
+  boundaryLayer.innerHTML = "";
+  if (state.showBoundary && state.points.length > 0) {
+    const b = computeBoundary(state.k, state.distance, state.p);
+    const { cells, cellW, cellH } = b;
+    cells.forEach(({ gx, gy, c }) => {
+      if (c == null) return;
+      const r = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      r.setAttribute("x", gx * cellW);
+      r.setAttribute("y", gy * cellH);
+      r.setAttribute("width", cellW + 1);
+      r.setAttribute("height", cellH + 1);
+      r.setAttribute("fill", CLASS_COLORS[c]);
+      r.setAttribute("opacity", "0.18");
+      r.setAttribute("class", "boundary-cell");
+      boundaryLayer.appendChild(r);
+    });
+  }
+
+  // ---- Axis frame ----
+  axisLayer.innerHTML = "";
+  const frame = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+  frame.setAttribute("x", 0); frame.setAttribute("y", 0);
+  frame.setAttribute("width", W); frame.setAttribute("height", H);
+  frame.setAttribute("class", "grid-bg");
+  frame.setAttribute("fill", "none");
+  frame.setAttribute("stroke", "#334155");
+  axisLayer.appendChild(frame);
+
+  // ---- K-neighborhood iso-distance contour ----
+  circleLayer.innerHTML = "";
+  if (result.top && result.top.length > 0) {
+    const r = result.kthDist;
+    const qx = state.query.x, qy = state.query.y;
+    if (state.distance === "euclidean") {
+      const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      c.setAttribute("cx", qx); c.setAttribute("cy", qy); c.setAttribute("r", r);
+      c.setAttribute("class", "k-circle");
+      circleLayer.appendChild(c);
+    } else if (state.distance === "sqeuclidean") {
+      // d = (Δx²+Δy²) → boundary is a circle of radius √d
+      const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      c.setAttribute("cx", qx); c.setAttribute("cy", qy);
+      c.setAttribute("r", Math.sqrt(r));
+      c.setAttribute("class", "k-circle");
+      circleLayer.appendChild(c);
+    } else if (state.distance === "manhattan") {
+      const pts = [[qx, qy - r], [qx + r, qy], [qx, qy + r], [qx - r, qy]]
+        .map(pp => pp.join(",")).join(" ");
+      const poly = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+      poly.setAttribute("points", pts);
+      poly.setAttribute("class", "k-circle");
+      circleLayer.appendChild(poly);
+    } else if (state.distance === "chebyshev") {
+      const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      rect.setAttribute("x", qx - r); rect.setAttribute("y", qy - r);
+      rect.setAttribute("width", 2 * r); rect.setAttribute("height", 2 * r);
+      rect.setAttribute("class", "k-circle");
+      circleLayer.appendChild(rect);
+    } else if (state.distance === "minkowski") {
+      // |x|^p + |y|^p = r^p  →  superellipse
+      const pp = state.p;
+      const pts = [];
+      const N = 256;
+      for (let i = 0; i < N; i++) {
+        const a = (i / N) * 2 * Math.PI;
+        const ca = Math.cos(a), sa = Math.sin(a);
+        // x = r * sgn(cos)*|cos|^(2/p), but we want d = (|x|^p+|y|^p)^(1/p) = r
+        // parametric superellipse:
+        const x = r * Math.sign(ca) * Math.pow(Math.abs(ca), 2 / pp);
+        const y = r * Math.sign(sa) * Math.pow(Math.abs(sa), 2 / pp);
+        pts.push([qx + x, qy + y]);
+      }
+      const poly = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+      poly.setAttribute("points", pts.map(pp2 => pp2.join(",")).join(" "));
+      poly.setAttribute("class", "k-circle");
+      circleLayer.appendChild(poly);
+    } else if (state.distance === "cosine") {
+      // Cosine: K-th distance = 1 - cos(θ_max) → angular boundary about the query direction (from canvas center).
+      const ax = qx - CX, ay = qy - CY;
+      const baseAng = Math.atan2(ay, ax);
+      const baseR = Math.sqrt(ax * ax + ay * ay);
+      const cosTh = 1 - r;
+      if (baseR > 0.5 && cosTh > -1 && cosTh < 1) {
+        const dTh = Math.acos(Math.max(-1, Math.min(1, cosTh)));
+        const big = 600;  // long radial arms
+        // Draw two radial wedge edges from canvas center
+        for (const sign of [-1, 1]) {
+          const ang = baseAng + sign * dTh;
+          const ln = document.createElementNS("http://www.w3.org/2000/svg", "line");
+          ln.setAttribute("x1", CX); ln.setAttribute("y1", CY);
+          ln.setAttribute("x2", CX + big * Math.cos(ang));
+          ln.setAttribute("y2", CY + big * Math.sin(ang));
+          ln.setAttribute("class", "k-circle");
+          circleLayer.appendChild(ln);
+        }
+        // origin marker
+        const o = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        o.setAttribute("cx", CX); o.setAttribute("cy", CY); o.setAttribute("r", 3);
+        o.setAttribute("fill", "var(--query)"); o.setAttribute("opacity", "0.8");
+        circleLayer.appendChild(o);
+      }
+    }
+  }
+
+  // ---- Lines from query to neighbors ----
+  lineLayer.innerHTML = "";
+  (result.top || []).forEach(({ p }) => {
+    const ln = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    ln.setAttribute("x1", state.query.x); ln.setAttribute("y1", state.query.y);
+    ln.setAttribute("x2", p.x); ln.setAttribute("y2", p.y);
+    ln.setAttribute("class", "neighbor-line");
+    ln.setAttribute("stroke", CLASS_COLORS[p.c]);
+    lineLayer.appendChild(ln);
+  });
+
+  // ---- Training points ----
+  pointsLayer.innerHTML = "";
+  state.points.forEach(p => {
+    const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    c.setAttribute("cx", p.x);
+    c.setAttribute("cy", p.y);
+    const isN = neighborIds.has(p.id);
+    c.setAttribute("r", isN ? 9 : 6);
+    c.setAttribute("class", "train-pt" + (isN ? " neighbor" : ""));
+    c.setAttribute("fill", CLASS_COLORS[p.c]);
+    c.dataset.pointId = p.id;
+    pointsLayer.appendChild(c);
+  });
+
+  // ---- Query marker ----
+  queryLayer.innerHTML = "";
+  const qC = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  qC.setAttribute("cx", state.query.x);
+  qC.setAttribute("cy", state.query.y);
+  qC.setAttribute("r", 11);
+  qC.setAttribute("class", "query-pt");
+  queryLayer.appendChild(qC);
+  // crosshair
+  const cross1 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+  cross1.setAttribute("x1", state.query.x - 16); cross1.setAttribute("y1", state.query.y);
+  cross1.setAttribute("x2", state.query.x + 16); cross1.setAttribute("y2", state.query.y);
+  cross1.setAttribute("class", "query-cross");
+  queryLayer.appendChild(cross1);
+  const cross2 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+  cross2.setAttribute("x1", state.query.x); cross2.setAttribute("y1", state.query.y - 16);
+  cross2.setAttribute("x2", state.query.x); cross2.setAttribute("y2", state.query.y + 16);
+  cross2.setAttribute("class", "query-cross");
+  queryLayer.appendChild(cross2);
+
+  // ---- Vote panel ----
+  renderVotes(result);
+  // ---- Distance table ----
+  renderDistTable(result);
+  // ---- Status ----
+  renderStatus(result);
+  // ---- Formula panel ----
+  renderFormulas(result);
+}
+
+function renderFormulas(result) {
+  // Highlight active card
+  document.querySelectorAll(".formula-card").forEach(card => {
+    card.classList.toggle("active", card.dataset.metric === state.distance);
+  });
+  // p tag
+  const tag = document.getElementById("minkowskiTag");
+  if (tag) tag.textContent = "p = " + (Number.isInteger(state.p) ? state.p : state.p.toFixed(1));
+
+  // Live "current d" against nearest neighbor for each metric
+  const nearest = (result.ranked && result.ranked.length) ? result.ranked[0].p : null;
+  const targets = ["euclidean","manhattan","chebyshev","minkowski","sqeuclidean","cosine"];
+  for (const m of targets) {
+    const el = document.getElementById("now-" + m);
+    if (!el) continue;
+    if (!nearest) { el.textContent = "d = —"; continue; }
+    const d = dist(state.query, nearest, m, state.p);
+    let label = "d";
+    if (m === "minkowski") label = "d (p=" + (Number.isInteger(state.p) ? state.p : state.p.toFixed(1)) + ")";
+    if (m === "sqeuclidean") label = "d²";
+    el.textContent = label + " = " + (m === "cosine" ? d.toFixed(3) : d.toFixed(1)) + "  (to nearest)";
+  }
+}
+
+function renderVotes(result) {
+  const votes = result.votes || { 0: 0, 1: 0, 2: 0 };
+  const totalVotes = Object.values(votes).reduce((a,b) => a+b, 0) || 1;
+  const list = document.getElementById("voteList");
+  list.innerHTML = "";
+  for (let c = 0; c < 3; c++) {
+    const row = document.createElement("div");
+    row.className = "vote-row";
+    row.innerHTML = `
+      <span><span class="class-dot" style="background:${CLASS_COLORS[c]}"></span>Class ${CLASS_NAMES[c]}</span>
+      <div class="vote-bar-bg"><div class="vote-bar" style="width:${(100 * (votes[c] || 0) / totalVotes).toFixed(1)}%; background:${CLASS_COLORS[c]}"></div></div>
+      <span class="vote-count">${votes[c] || 0}</span>
+    `;
+    list.appendChild(row);
+  }
+  const pill = document.getElementById("predPill");
+  if (result.prediction != null) {
+    pill.style.background = CLASS_COLORS[result.prediction];
+    pill.textContent = "Class " + CLASS_NAMES[result.prediction];
+  } else {
+    pill.style.background = "#475569";
+    pill.textContent = "—";
+  }
+}
+
+function renderDistTable(result) {
+  const tbody = document.querySelector("#distTable tbody");
+  tbody.innerHTML = "";
+  const ranked = result.ranked || [];
+  // Show up to 30 rows so the user can see context past the K cutoff
+  const limit = Math.min(ranked.length, Math.max(state.k + 5, 10));
+  ranked.slice(0, limit).forEach(({ p, d }, i) => {
+    const tr = document.createElement("tr");
+    const inK = i < state.k;
+    if (inK) tr.classList.add("in-k");
+    if (i === state.k - 1) tr.classList.add("kth");
+    tr.innerHTML = `
+      <td>${i + 1}</td>
+      <td><span class="class-dot" style="background:${CLASS_COLORS[p.c]}"></span>${CLASS_NAMES[p.c]}</td>
+      <td>(${Math.round(p.x)}, ${Math.round(p.y)})</td>
+      <td>${d.toFixed(1)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderStatus(result) {
+  const sb = document.getElementById("statusBar");
+  if (state.points.length === 0) {
+    sb.innerHTML = "Add training points (or load a preset) to start classifying.";
+    return;
+  }
+  const k = Math.min(state.k, state.points.length);
+  const v = result.votes || { 0:0, 1:0, 2:0 };
+  const parts = [];
+  for (let c = 0; c < 3; c++) if (v[c]) parts.push(`${v[c]}×${CLASS_NAMES[c]}`);
+  const cls = result.prediction != null ? CLASS_NAMES[result.prediction] : "?";
+  sb.innerHTML =
+    `<b>Query (${Math.round(state.query.x)}, ${Math.round(state.query.y)})</b> with ` +
+    `<b>k = ${k}</b>, ${state.distance}: top-K vote = <b>${parts.join(" + ") || "—"}</b> → ` +
+    `predicted class <b style="color:${result.prediction != null ? CLASS_COLORS[result.prediction] : 'inherit'}">${cls}</b>` +
+    (result.kthDist ? ` &nbsp; (k-th distance ≈ ${result.kthDist.toFixed(1)})` : "");
+}
+
+/* ===========================================================
+   INTERACTION
+   =========================================================== */
+function clientToSvg(evt) {
+  const pt = svg.createSVGPoint();
+  pt.x = evt.clientX; pt.y = evt.clientY;
+  const ctm = svg.getScreenCTM();
+  if (!ctm) return { x: evt.clientX, y: evt.clientY };
+  const p = pt.matrixTransform(ctm.inverse());
+  return { x: p.x, y: p.y };
+}
+
+document.querySelectorAll(".mode-pills button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".mode-pills button").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    state.mode = btn.dataset.mode;
+    render();
+  });
+});
+
+let dragging = false;
+svg.addEventListener("mousedown", (e) => {
+  const target = e.target;
+  const pt = clientToSvg(e);
+  // Clamp to plot area
+  pt.x = Math.max(8, Math.min(W - 8, pt.x));
+  pt.y = Math.max(8, Math.min(H - 8, pt.y));
+
+  if (state.mode === "query") {
+    state.query = pt;
+    dragging = true;
+    render();
+    return;
+  }
+  if (state.mode === "add") {
+    state.points.push({ x: pt.x, y: pt.y, c: state.classForNew, id: state.nextId++ });
+    syncKMax();
+    render();
+    return;
+  }
+  if (state.mode === "delete") {
+    const ptEl = target.closest("[data-point-id]");
+    if (ptEl) {
+      const id = +ptEl.dataset.pointId;
+      state.points = state.points.filter(p => p.id !== id);
+      syncKMax();
+      render();
+    }
+    return;
+  }
+});
+svg.addEventListener("mousemove", (e) => {
+  if (!dragging || state.mode !== "query") return;
+  const pt = clientToSvg(e);
+  state.query.x = Math.max(8, Math.min(W - 8, pt.x));
+  state.query.y = Math.max(8, Math.min(H - 8, pt.y));
+  render();
+});
+window.addEventListener("mouseup", () => { dragging = false; });
+
+document.getElementById("kRange").addEventListener("input", (e) => {
+  state.k = +e.target.value;
+  document.getElementById("kValue").textContent = "k = " + state.k;
+  render();
+});
+document.getElementById("distSelect").addEventListener("change", (e) => {
+  state.distance = e.target.value;
+  document.getElementById("pInputWrap").style.display =
+    state.distance === "minkowski" ? "" : "none";
+  render();
+});
+document.getElementById("pInput").addEventListener("input", (e) => {
+  const v = +e.target.value;
+  if (Number.isFinite(v) && v > 0) {
+    state.p = v;
+    render();
+  }
+});
+// Click any formula card to switch metric
+document.querySelectorAll(".formula-card").forEach(card => {
+  card.addEventListener("click", () => {
+    state.distance = card.dataset.metric;
+    document.getElementById("distSelect").value = state.distance;
+    document.getElementById("pInputWrap").style.display =
+      state.distance === "minkowski" ? "" : "none";
+    render();
+  });
+});
+document.getElementById("classSelect").addEventListener("change", (e) => {
+  state.classForNew = +e.target.value;
+});
+document.getElementById("boundaryToggle").addEventListener("change", (e) => {
+  state.showBoundary = e.target.checked;
+  render();
+});
+document.getElementById("loadPresetBtn").addEventListener("click", () => {
+  loadPreset(document.getElementById("presetSelect").value);
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+  if (e.key === "ArrowUp" || e.key === "+" || e.key === "=") {
+    e.preventDefault();
+    const r = document.getElementById("kRange");
+    state.k = Math.min(+r.max, state.k + 1);
+    r.value = state.k;
+    document.getElementById("kValue").textContent = "k = " + state.k;
+    render();
+  } else if (e.key === "ArrowDown" || e.key === "-") {
+    e.preventDefault();
+    const r = document.getElementById("kRange");
+    state.k = Math.max(1, state.k - 1);
+    r.value = state.k;
+    document.getElementById("kValue").textContent = "k = " + state.k;
+    render();
+  }
+});
+
+/* ===========================================================
+   BOOT
+   =========================================================== */
+loadPreset("three");
+</script>
+</body>
+</html>
