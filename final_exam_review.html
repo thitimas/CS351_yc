@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CS 351 — Final Exam Review Sheet</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --panel-2: #334155;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --accent-2: #22d3ee;
+    --ok: #4ade80;
+    --warn: #fbbf24;
+    --danger: #f87171;
+    --code-bg: #0b1220;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.55;
+  }
+  header {
+    padding: 28px 24px;
+    background: linear-gradient(90deg, #0c4a6e, #164e63);
+    border-bottom: 1px solid #0e7490;
+  }
+  header h1 { margin: 0; font-size: 26px; }
+  header p { margin: 6px 0 0; color: #bae6fd; font-size: 14px; }
+
+  /* Layout: sticky TOC + content */
+  .layout {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; padding: 16px; }
+    .toc { position: static !important; }
+  }
+  .toc {
+    position: sticky;
+    top: 16px;
+    align-self: start;
+    background: var(--panel);
+    border: 1px solid var(--panel-2);
+    border-radius: 10px;
+    padding: 14px 12px;
+    font-size: 13px;
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+  }
+  .toc h3 {
+    margin: 0 0 8px;
+    color: var(--accent);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .toc ol { margin: 0; padding-left: 18px; }
+  .toc li { margin-bottom: 4px; }
+  .toc a { color: var(--text); text-decoration: none; }
+  .toc a:hover { color: var(--accent); }
+
+  /* Topic card */
+  .topic {
+    background: var(--panel);
+    border: 1px solid var(--panel-2);
+    border-radius: 12px;
+    padding: 20px 22px;
+    margin-bottom: 18px;
+    scroll-margin-top: 16px;
+  }
+  .topic h2 {
+    margin: 0 0 12px;
+    font-size: 19px;
+    color: var(--accent);
+    border-bottom: 1px solid var(--panel-2);
+    padding-bottom: 6px;
+  }
+  .topic h3 {
+    margin: 18px 0 6px;
+    font-size: 15px;
+    color: var(--accent-2);
+  }
+  .topic p, .topic li { font-size: 14px; }
+  .topic ul, .topic ol { margin: 4px 0 8px; padding-left: 22px; }
+
+  /* Code/pseudocode boxes */
+  pre, code {
+    font-family: "SF Mono", Consolas, "Liberation Mono", monospace;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--panel-2);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin: 8px 0;
+    font-size: 12.5px;
+    line-height: 1.55;
+    overflow-x: auto;
+    white-space: pre;
+  }
+  code {
+    background: var(--code-bg);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.92em;
+    color: #fde68a;
+  }
+  pre .kw { color: #f472b6; }
+  pre .fn { color: #60a5fa; }
+  pre .cm { color: #64748b; font-style: italic; }
+
+  /* Tables */
+  table.runtime {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin: 8px 0;
+  }
+  table.runtime th, table.runtime td {
+    padding: 6px 10px;
+    text-align: left;
+    border-bottom: 1px solid var(--panel-2);
+  }
+  table.runtime th {
+    color: var(--accent);
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.4px;
+  }
+  table.runtime td.big {
+    font-family: "SF Mono", Consolas, monospace;
+    color: #fde68a;
+    font-size: 12.5px;
+  }
+  table.runtime tr:hover { background: rgba(56, 189, 248, 0.05); }
+
+  /* Example / key-concept callouts */
+  .example {
+    background: rgba(74, 222, 128, 0.08);
+    border-left: 3px solid var(--ok);
+    border-radius: 4px;
+    padding: 10px 14px;
+    margin: 10px 0;
+    font-size: 13.5px;
+  }
+  .example strong { color: var(--ok); }
+  .key {
+    background: rgba(56, 189, 248, 0.07);
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    padding: 10px 14px;
+    margin: 10px 0;
+    font-size: 13.5px;
+  }
+  .key strong { color: var(--accent); }
+  .warn {
+    background: rgba(251, 191, 36, 0.08);
+    border-left: 3px solid var(--warn);
+    border-radius: 4px;
+    padding: 10px 14px;
+    margin: 10px 0;
+    font-size: 13.5px;
+  }
+  .warn strong { color: var(--warn); }
+
+  .big-o { font-family: "SF Mono", Consolas, monospace; color: #fde68a; }
+  .pill {
+    display: inline-block;
+    background: var(--panel-2);
+    color: var(--text);
+    border-radius: 10px;
+    padding: 1px 8px;
+    font-size: 11px;
+    margin-right: 4px;
+  }
+  .footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    padding: 24px;
+    border-top: 1px solid var(--panel-2);
+    margin-top: 16px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>CS 351 — Final Exam Review Sheet</h1>
+  <p>Algorithm Design &amp; Analysis · key concepts, examples, and runtime analysis</p>
+</header>
+
+<div class="layout">
+
+  <!-- Sticky TOC -->
+  <nav class="toc">
+    <h3>Topics</h3>
+    <ol>
+      <li><a href="#analysis">Algorithm Analysis</a></li>
+      <li><a href="#search">Search</a></li>
+      <li><a href="#ds">Data Structures</a></li>
+      <li><a href="#sort">Sorting</a></li>
+      <li><a href="#patterns">Algorithm Patterns</a></li>
+      <li><a href="#greedy">Greedy</a></li>
+      <li><a href="#dp">Dynamic Programming</a></li>
+      <li><a href="#graph">Graph Algorithms</a></li>
+      <li><a href="#knn">KNN</a></li>
+      <li><a href="#cheat">Big-O Cheat Sheet</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <!-- ====================== 1. ANALYSIS ====================== -->
+    <section class="topic" id="analysis">
+      <h2>1. Algorithm Analysis &amp; Asymptotic Notation</h2>
+      <div class="key"><strong>Key idea:</strong> describe how the running time grows with input size <code>n</code>, ignoring constants and lower-order terms.</div>
+
+      <h3>Three notations</h3>
+      <ul>
+        <li><span class="big-o">O(f(n))</span> — <em>upper bound</em>: the algorithm runs in at most this much time (worst case).</li>
+        <li><span class="big-o">Ω(f(n))</span> — <em>lower bound</em>: the algorithm needs at least this much time.</li>
+        <li><span class="big-o">Θ(f(n))</span> — <em>tight bound</em>: same upper and lower asymptotic order.</li>
+      </ul>
+
+      <h3>Common orders, slowest growth → fastest</h3>
+      <p class="big-o">O(1) &lt; O(log n) &lt; O(√n) &lt; O(n) &lt; O(n log n) &lt; O(n²) &lt; O(n³) &lt; O(2ⁿ) &lt; O(n!)</p>
+
+      <div class="example">
+        <strong>Example:</strong> Insertion sort's inner-loop count is <code>1 + 2 + … + (n-1) = n(n-1)/2 = Θ(n²)</code>.
+        We say "insertion sort is <span class="big-o">O(n²)</span> worst case, <span class="big-o">Ω(n)</span> best case (already sorted)."
+      </div>
+    </section>
+
+    <!-- ====================== 2. SEARCH ====================== -->
+    <section class="topic" id="search">
+      <h2>2. Search</h2>
+
+      <h3>Linear search</h3>
+      <p>Scan the array left to right, return index when found.</p>
+      <table class="runtime">
+        <tr><th>Case</th><th>Time</th><th>Space</th></tr>
+        <tr><td>Best (first element)</td><td class="big">O(1)</td><td class="big">O(1)</td></tr>
+        <tr><td>Worst / average</td><td class="big">O(n)</td><td class="big">O(1)</td></tr>
+      </table>
+
+      <h3>Binary search (requires sorted array)</h3>
+      <p>Compare to middle; recurse into the half that may contain the key.</p>
+      <pre><span class="kw">function</span> <span class="fn">binarySearch</span>(A, key):
+  lo ← 0; hi ← n − 1
+  <span class="kw">while</span> lo ≤ hi:
+    mid ← (lo + hi) / 2
+    <span class="kw">if</span> A[mid] = key  <span class="kw">return</span> mid
+    <span class="kw">else if</span> key &lt; A[mid]  hi ← mid − 1
+    <span class="kw">else</span>  lo ← mid + 1
+  <span class="kw">return</span> NOT_FOUND</pre>
+      <table class="runtime">
+        <tr><th>Case</th><th>Time</th><th>Space (iter)</th><th>Space (rec)</th></tr>
+        <tr><td>All cases</td><td class="big">O(log n)</td><td class="big">O(1)</td><td class="big">O(log n)</td></tr>
+      </table>
+
+      <h3>k-th largest element (selection problem)</h3>
+      <ul>
+        <li><strong>Sort + index:</strong> <span class="big-o">O(n log n)</span></li>
+        <li><strong>Min-heap of size k:</strong> <span class="big-o">O(n log k)</span> — push, pop when size &gt; k, root is the k-th largest</li>
+        <li><strong>Quickselect (partition-based):</strong> <span class="big-o">O(n)</span> average, O(n²) worst</li>
+      </ul>
+    </section>
+
+    <!-- ====================== 3. DATA STRUCTURES ====================== -->
+    <section class="topic" id="ds">
+      <h2>3. Data Structures</h2>
+
+      <table class="runtime">
+        <tr><th>Structure</th><th>Access</th><th>Search</th><th>Insert</th><th>Delete</th><th>Notes</th></tr>
+        <tr><td>Array (static)</td><td class="big">O(1)</td><td class="big">O(n)</td><td class="big">O(n)</td><td class="big">O(n)</td><td>Random access; resize is costly</td></tr>
+        <tr><td>Dynamic array / vector</td><td class="big">O(1)</td><td class="big">O(n)</td><td class="big">O(1) amortized at end</td><td class="big">O(n)</td><td>Doubling strategy</td></tr>
+        <tr><td>Linked list (singly)</td><td class="big">O(n)</td><td class="big">O(n)</td><td class="big">O(1) at head</td><td class="big">O(1) given node</td><td>No random access</td></tr>
+        <tr><td>Stack (LIFO)</td><td>—</td><td>—</td><td class="big">O(1) push</td><td class="big">O(1) pop</td><td>Function calls, DFS</td></tr>
+        <tr><td>Queue (FIFO)</td><td>—</td><td>—</td><td class="big">O(1) enqueue</td><td class="big">O(1) dequeue</td><td>BFS</td></tr>
+        <tr><td>Binary heap (min/max)</td><td class="big">O(1) root</td><td class="big">O(n)</td><td class="big">O(log n)</td><td class="big">O(log n)</td><td>Priority queue; build-heap O(n)</td></tr>
+        <tr><td>Hash table</td><td>—</td><td class="big">O(1) avg / O(n) worst</td><td class="big">O(1) avg</td><td class="big">O(1) avg</td><td>Needs good hash + low load factor</td></tr>
+        <tr><td>BST (balanced)</td><td>—</td><td class="big">O(log n)</td><td class="big">O(log n)</td><td class="big">O(log n)</td><td>Ordered iteration</td></tr>
+      </table>
+
+      <h3>Binary heap as an array</h3>
+      <p>Root at <code>A[1]</code>; for node <code>i</code>:</p>
+      <ul>
+        <li>Parent = <code>i / 2</code></li>
+        <li>Left child = <code>2i</code>, Right child = <code>2i + 1</code></li>
+      </ul>
+      <div class="key"><strong>Heap property:</strong> in a <em>max-heap</em>, parent ≥ children; in a <em>min-heap</em>, parent ≤ children. Build-heap runs in <span class="big-o">O(n)</span> (tight analysis), not O(n log n).</div>
+
+      <h3>Hash table — collision handling</h3>
+      <ul>
+        <li><strong>Chaining:</strong> each slot holds a linked list of entries.</li>
+        <li><strong>Open addressing:</strong> linear / quadratic probing, double hashing.</li>
+      </ul>
+    </section>
+
+    <!-- ====================== 4. SORTING ====================== -->
+    <section class="topic" id="sort">
+      <h2>4. Sorting Algorithms</h2>
+
+      <table class="runtime">
+        <tr><th>Algorithm</th><th>Best</th><th>Average</th><th>Worst</th><th>Space</th><th>Stable</th><th>Idea</th></tr>
+        <tr><td>Insertion sort</td><td class="big">O(n)</td><td class="big">O(n²)</td><td class="big">O(n²)</td><td class="big">O(1)</td><td>Yes</td><td>Insert each element into sorted prefix</td></tr>
+        <tr><td>Merge sort</td><td class="big">O(n log n)</td><td class="big">O(n log n)</td><td class="big">O(n log n)</td><td class="big">O(n)</td><td>Yes</td><td>Divide, conquer, merge</td></tr>
+        <tr><td>Quick sort</td><td class="big">O(n log n)</td><td class="big">O(n log n)</td><td class="big">O(n²)</td><td class="big">O(log n)</td><td>No</td><td>Partition around pivot</td></tr>
+        <tr><td>Heap sort</td><td class="big">O(n log n)</td><td class="big">O(n log n)</td><td class="big">O(n log n)</td><td class="big">O(1)</td><td>No</td><td>Build max-heap, extract max n times</td></tr>
+        <tr><td>Counting sort</td><td class="big">O(n + k)</td><td class="big">O(n + k)</td><td class="big">O(n + k)</td><td class="big">O(n + k)</td><td>Yes</td><td>Count occurrences, write back; integer keys 0..k</td></tr>
+      </table>
+
+      <h3>Insertion sort (analysis)</h3>
+      <pre><span class="kw">for</span> j = 2 <span class="kw">to</span> n:
+  key ← A[j]
+  i ← j − 1
+  <span class="kw">while</span> i &gt; 0 <span class="kw">and</span> A[i] &gt; key:
+    A[i+1] ← A[i]
+    i ← i − 1
+  A[i+1] ← key</pre>
+      <div class="example"><strong>Example (sort 5 1 4 2 8):</strong> after j=2: <code>1 5 4 2 8</code> · j=3: <code>1 4 5 2 8</code> · j=4: <code>1 2 4 5 8</code> · j=5: <code>1 2 4 5 8</code>.</div>
+
+      <h3>Merge sort recurrence</h3>
+      <p><code>T(n) = 2T(n/2) + Θ(n)</code> → by the Master Theorem, <span class="big-o">Θ(n log n)</span>.</p>
+
+      <h3>Quick sort partitioning (Lomuto)</h3>
+      <pre><span class="kw">function</span> <span class="fn">partition</span>(A, lo, hi):
+  pivot ← A[hi]
+  i ← lo − 1
+  <span class="kw">for</span> j = lo <span class="kw">to</span> hi − 1:
+    <span class="kw">if</span> A[j] ≤ pivot:
+      i ← i + 1; swap A[i], A[j]
+  swap A[i+1], A[hi]
+  <span class="kw">return</span> i + 1</pre>
+      <div class="warn"><strong>Worst case</strong> <span class="big-o">O(n²)</span> when pivots are always the smallest/largest — mitigated by random pivot or median-of-three.</div>
+
+      <h3>Counting sort</h3>
+      <p>Stable, linear time, but only for small-integer keys (k = range of keys). Not a comparison sort.</p>
+    </section>
+
+    <!-- ====================== 5. PATTERNS ====================== -->
+    <section class="topic" id="patterns">
+      <h2>5. Common Algorithm Patterns</h2>
+
+      <h3>Two pointers</h3>
+      <p>Use one pointer from each end (or both from start) to scan a sorted/array structure in <span class="big-o">O(n)</span>.</p>
+      <div class="example"><strong>Example — pair sum:</strong> given sorted array, find <code>i, j</code> with <code>A[i] + A[j] = target</code>. Move <code>i</code>++ if sum too small, <code>j</code>-- if too big.</div>
+
+      <h3>Sliding window</h3>
+      <p>Maintain a window <code>[L, R]</code> and a running aggregate; slide <code>R</code> right, shrink from <code>L</code> when invariant breaks. Most problems run in <span class="big-o">O(n)</span>.</p>
+      <div class="example"><strong>Example:</strong> longest substring without repeating characters; max sum of size-k subarray.</div>
+
+      <h3>Sock merchant (hashing for counting)</h3>
+      <p>Walk the array once, hash-count each value. Pairs of color <code>c</code> = <code>⌊count[c] / 2⌋</code>. Time <span class="big-o">O(n)</span>, space <span class="big-o">O(unique)</span>.</p>
+    </section>
+
+    <!-- ====================== 6. GREEDY ====================== -->
+    <section class="topic" id="greedy">
+      <h2>6. Greedy Algorithms</h2>
+      <div class="key"><strong>Greedy idea:</strong> at each step, take the locally optimal choice and never reconsider. Works only when the problem has <em>optimal substructure</em> + the <em>greedy-choice property</em>.</div>
+
+      <h3>Coin change (US denominations {1, 5, 10, 25})</h3>
+      <p>At each step pick the largest coin ≤ remaining amount.</p>
+      <div class="example"><strong>Example:</strong> 31¢ → {25} (6 left) → {25, 5} (1 left) → {25, 5, 1}.</div>
+      <div class="warn"><strong>Caveat:</strong> greedy is <em>not</em> optimal for arbitrary denominations (e.g. {1, 3, 4} for 6¢ → greedy gives {4,1,1}=3 coins, optimal is {3,3}=2 coins).</div>
+
+      <h3>Activity selection</h3>
+      <p>Pick the activity with the earliest finish time, drop activities that overlap, repeat.</p>
+      <p>Sort by finish time: <span class="big-o">O(n log n)</span>. Then one pass: <span class="big-o">O(n)</span>.</p>
+
+      <h3>Huffman coding</h3>
+      <p>Build an optimal prefix code: repeatedly merge the two lowest-frequency nodes into a new internal node with combined frequency. Use a min-heap (priority queue).</p>
+      <table class="runtime">
+        <tr><th>Step</th><th>Cost</th></tr>
+        <tr><td>Build heap of n leaves</td><td class="big">O(n)</td></tr>
+        <tr><td>n − 1 merges, each two extract-min + one insert</td><td class="big">O(n log n)</td></tr>
+        <tr><td>Total</td><td class="big">O(n log n)</td></tr>
+      </table>
+
+      <h3>Fractional knapsack</h3>
+      <p>Sort items by value/weight ratio descending; take items greedily, take a fraction of the last one to fill capacity. <span class="big-o">O(n log n)</span>.</p>
+      <div class="warn"><strong>Note:</strong> greedy works for <em>fractional</em> knapsack only. <em>0/1 knapsack</em> needs DP — see next section.</div>
+    </section>
+
+    <!-- ====================== 7. DP ====================== -->
+    <section class="topic" id="dp">
+      <h2>7. Dynamic Programming</h2>
+      <div class="key"><strong>When to use DP:</strong> the problem has (1) <em>optimal substructure</em> (optimal solution built from optimal subproblem solutions) and (2) <em>overlapping subproblems</em> (the same subproblems are solved many times).</div>
+
+      <h3>Memoization vs Tabulation</h3>
+      <ul>
+        <li><strong>Memoization</strong> — top-down recursion + cache.</li>
+        <li><strong>Tabulation</strong> — bottom-up table filling in dependency order.</li>
+      </ul>
+
+      <h3>Fibonacci — the DP intro</h3>
+      <pre><span class="cm">// naive recursion: T(n) = T(n-1)+T(n-2)+O(1) ≈ O(φⁿ) — exponential!</span>
+<span class="kw">function</span> <span class="fn">fib</span>(n):
+  <span class="kw">if</span> n &lt; 2: <span class="kw">return</span> n
+  <span class="kw">return</span> fib(n-1) + fib(n-2)
+
+<span class="cm">// memoized: O(n) time, O(n) space</span>
+memo[0] = 0; memo[1] = 1
+<span class="kw">function</span> <span class="fn">fibMemo</span>(n):
+  <span class="kw">if</span> memo[n] defined: <span class="kw">return</span> memo[n]
+  memo[n] ← fibMemo(n-1) + fibMemo(n-2)
+  <span class="kw">return</span> memo[n]
+
+<span class="cm">// bottom-up: O(n) time, O(1) space</span>
+a ← 0; b ← 1
+<span class="kw">for</span> i = 2 <span class="kw">to</span> n:
+  (a, b) ← (b, a + b)
+<span class="kw">return</span> b</pre>
+
+      <h3>Rod cutting</h3>
+      <p>Cut a length-<code>n</code> rod into pieces to maximize revenue, given price <code>p[i]</code> for a piece of length <code>i</code>.</p>
+      <p>Recurrence: <code>r(n) = max<sub>1≤i≤n</sub> (p[i] + r(n − i))</code>, with <code>r(0) = 0</code>.</p>
+      <p>Time <span class="big-o">O(n²)</span>, space <span class="big-o">O(n)</span>.</p>
+
+      <h3>0/1 Knapsack</h3>
+      <p>Items have weight <code>w[i]</code>, value <code>v[i]</code>; capacity <code>W</code>; either take item i or don't.</p>
+      <p>Recurrence: <code>K[i][w] = max(K[i−1][w], v[i] + K[i−1][w − w[i]])</code>.</p>
+      <p>Time and space <span class="big-o">O(n·W)</span> — pseudo-polynomial.</p>
+      <div class="example"><strong>Example:</strong> items {(w=2, v=3), (w=3, v=4), (w=4, v=5)}, W=5 → optimal = items 1&amp;2, value 7.</div>
+
+      <h3>Longest Common Subsequence (LCS)</h3>
+      <p>Given strings X (length m) and Y (length n), find the longest subsequence common to both.</p>
+      <p>Recurrence: if <code>X[i] = Y[j]</code> then <code>c[i][j] = c[i−1][j−1] + 1</code>, else <code>c[i][j] = max(c[i−1][j], c[i][j−1])</code>.</p>
+      <p>Time and space <span class="big-o">O(m·n)</span>.</p>
+      <div class="example"><strong>Example:</strong> LCS of <code>ABCBDAB</code> and <code>BDCAB</code> is <code>BCAB</code> (length 4).</div>
+    </section>
+
+    <!-- ====================== 8. GRAPHS ====================== -->
+    <section class="topic" id="graph">
+      <h2>8. Graph Algorithms</h2>
+
+      <h3>Representations</h3>
+      <table class="runtime">
+        <tr><th>Representation</th><th>Space</th><th>"Is edge (u,v)?"</th><th>List neighbors of u</th><th>When to use</th></tr>
+        <tr><td>Adjacency matrix</td><td class="big">O(V²)</td><td class="big">O(1)</td><td class="big">O(V)</td><td>Dense graphs</td></tr>
+        <tr><td>Adjacency list</td><td class="big">O(V + E)</td><td class="big">O(deg(u))</td><td class="big">O(deg(u))</td><td>Sparse graphs (most real ones)</td></tr>
+      </table>
+
+      <h3>BFS — Breadth-First Search</h3>
+      <p>Explore neighbors level by level using a queue. Finds shortest paths in <em>unweighted</em> graphs.</p>
+      <p>Time <span class="big-o">O(V + E)</span>, Space <span class="big-o">O(V)</span>.</p>
+
+      <h3>DFS — Depth-First Search</h3>
+      <p>Explore as deep as possible before backtracking; recursive or stack-based.</p>
+      <p>Time <span class="big-o">O(V + E)</span>. Tracks discovery time <code>d[u]</code> and finish time <code>f[u]</code> (3-color WHITE/GRAY/BLACK).</p>
+
+      <h3>Topological sort (on a DAG)</h3>
+      <p>A linear ordering of vertices such that for every edge <code>u → v</code>, <code>u</code> appears before <code>v</code>.</p>
+      <p>DFS-based: when a vertex turns BLACK, push it onto a stack. Output is the stack reversed (i.e. sort by decreasing finish time).</p>
+      <p>Time <span class="big-o">O(V + E)</span>. Detects a cycle if DFS finds a back edge (gray → gray).</p>
+
+      <h3>Dijkstra's algorithm (single-source shortest path)</h3>
+      <p>Requires non-negative edge weights. Greedy: at each step extract-min by tentative distance, relax outgoing edges.</p>
+      <pre><span class="kw">function</span> <span class="fn">dijkstra</span>(G, source):
+  dist[source] ← 0;  dist[v] ← ∞ for all other v
+  PQ ← min-heap with (0, source)
+  <span class="kw">while</span> PQ not empty:
+    (d, u) ← extract-min
+    <span class="kw">if</span> d &gt; dist[u]: <span class="kw">continue</span>   <span class="cm">// skip stale entry</span>
+    <span class="kw">for each</span> edge (u, v, w):
+      <span class="kw">if</span> dist[u] + w &lt; dist[v]:
+        dist[v] ← dist[u] + w
+        prev[v] ← u
+        insert (dist[v], v) into PQ</pre>
+      <table class="runtime">
+        <tr><th>Implementation</th><th>Time</th></tr>
+        <tr><td>Binary heap PQ</td><td class="big">O((V + E) log V)</td></tr>
+        <tr><td>Fibonacci heap</td><td class="big">O(E + V log V)</td></tr>
+      </table>
+
+      <h3>Minimum Spanning Tree (MST)</h3>
+      <p>Connect all vertices with the minimum total edge weight, no cycles.</p>
+      <ul>
+        <li><strong>Kruskal's:</strong> sort edges by weight, add an edge if its endpoints are in different components (Union-Find / DSU). <span class="big-o">O(E log E)</span>.</li>
+        <li><strong>Prim's:</strong> grow the tree from a starting vertex, always adding the cheapest edge crossing the cut. <span class="big-o">O(E log V)</span> with binary heap.</li>
+      </ul>
+      <div class="example"><strong>Disconnected graphs:</strong> Kruskal produces a <em>minimum spanning forest</em> — one tree per connected component.</div>
+    </section>
+
+    <!-- ====================== 9. KNN ====================== -->
+    <section class="topic" id="knn">
+      <h2>9. K-Nearest Neighbors (KNN)</h2>
+      <div class="key"><strong>Idea:</strong> a "lazy learner" — no training. To classify a new point, find the K closest training points and take the majority vote.</div>
+
+      <h3>Algorithm</h3>
+      <pre><span class="kw">function</span> <span class="fn">KNN-Classify</span>(training_set, x_query, k):
+  <span class="kw">for each</span> (x_i, label_i) <span class="kw">in</span> training_set:
+    d_i ← distance(x_query, x_i)
+  sort by d_i ascending
+  neighbors ← first k entries
+  <span class="kw">return</span> majority label among neighbors</pre>
+
+      <h3>Distance metrics (most common)</h3>
+      <ul>
+        <li><strong>Euclidean (L₂):</strong> <code>√Σ(xᵢ − yᵢ)²</code> — straight line.</li>
+        <li><strong>Manhattan (L₁):</strong> <code>Σ|xᵢ − yᵢ|</code> — city-block.</li>
+        <li><strong>Chebyshev (L∞):</strong> <code>max|xᵢ − yᵢ|</code> — largest single-axis gap.</li>
+      </ul>
+
+      <h3>Runtime</h3>
+      <table class="runtime">
+        <tr><th>Phase</th><th>Time</th><th>Space</th></tr>
+        <tr><td>Train (just store)</td><td class="big">O(1)</td><td class="big">O(n·d)</td></tr>
+        <tr><td>Predict (naive)</td><td class="big">O(n·d + n·log n)</td><td class="big">O(n)</td></tr>
+      </table>
+      <p>n = training size, d = feature dimensions. Distance computation is O(n·d); sorting to find the K nearest is O(n·log n).</p>
+
+      <div class="warn"><strong>Choosing K:</strong> small K = low bias, high variance (noisy); large K = high bias, low variance (oversmooth). Pick K by cross-validation.</div>
+    </section>
+
+    <!-- ====================== 10. CHEAT SHEET ====================== -->
+    <section class="topic" id="cheat">
+      <h2>10. Big-O Cheat Sheet — quick reference</h2>
+
+      <table class="runtime">
+        <tr><th>Operation / Algorithm</th><th>Time</th><th>Notes</th></tr>
+        <tr><td>Binary search</td><td class="big">O(log n)</td><td>sorted array</td></tr>
+        <tr><td>Hash table get/put</td><td class="big">O(1) avg</td><td>O(n) worst with bad hash</td></tr>
+        <tr><td>Heap insert / extract</td><td class="big">O(log n)</td><td>build-heap O(n)</td></tr>
+        <tr><td>Merge / Heap sort</td><td class="big">O(n log n)</td><td>guaranteed</td></tr>
+        <tr><td>Quick sort</td><td class="big">O(n log n) avg</td><td>O(n²) worst</td></tr>
+        <tr><td>Counting sort</td><td class="big">O(n + k)</td><td>integer keys 0..k</td></tr>
+        <tr><td>BFS / DFS</td><td class="big">O(V + E)</td><td>graph traversal</td></tr>
+        <tr><td>Topological sort</td><td class="big">O(V + E)</td><td>DAG only</td></tr>
+        <tr><td>Dijkstra (binary heap)</td><td class="big">O((V+E) log V)</td><td>non-negative weights</td></tr>
+        <tr><td>Kruskal's MST</td><td class="big">O(E log E)</td><td>Union-Find</td></tr>
+        <tr><td>Prim's MST (binary heap)</td><td class="big">O(E log V)</td><td>grow from one vertex</td></tr>
+        <tr><td>0/1 Knapsack (DP)</td><td class="big">O(n·W)</td><td>pseudo-polynomial</td></tr>
+        <tr><td>Rod cutting (DP)</td><td class="big">O(n²)</td><td></td></tr>
+        <tr><td>LCS</td><td class="big">O(m·n)</td><td>two strings of length m, n</td></tr>
+        <tr><td>Activity selection</td><td class="big">O(n log n)</td><td>sort by finish time</td></tr>
+        <tr><td>Huffman coding</td><td class="big">O(n log n)</td><td>priority queue</td></tr>
+        <tr><td>Fractional knapsack</td><td class="big">O(n log n)</td><td>sort by value/weight</td></tr>
+        <tr><td>KNN predict</td><td class="big">O(n·d + n·log n)</td><td>per query</td></tr>
+      </table>
+
+      <h3>Master Theorem (quick form)</h3>
+      <p>For <code>T(n) = a · T(n/b) + f(n)</code> with <code>a ≥ 1, b &gt; 1</code>:</p>
+      <ul>
+        <li>If <code>f(n) = O(n^(log_b(a) − ε))</code> → <span class="big-o">T(n) = Θ(n^log_b(a))</span></li>
+        <li>If <code>f(n) = Θ(n^log_b(a))</code> → <span class="big-o">T(n) = Θ(n^log_b(a) · log n)</span></li>
+        <li>If <code>f(n) = Ω(n^(log_b(a) + ε))</code> (and regularity) → <span class="big-o">T(n) = Θ(f(n))</span></li>
+      </ul>
+      <div class="example"><strong>Merge sort:</strong> <code>T(n) = 2T(n/2) + Θ(n)</code> → case 2 → <span class="big-o">Θ(n log n)</span>.</div>
+    </section>
+
+  </main>
+</div>
+
+<div class="footer">
+  CS 351 — Algorithm Design &amp; Analysis · Spring 2026 · review sheet for final exam
+</div>
+
+</body>
+</html>
